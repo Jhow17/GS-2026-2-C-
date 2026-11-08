@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using GS_TermoAtiva_C_.Models;
+using ReaLTaiizor.Controls;
 
 namespace GS_TermoAtiva_C_.Views
 {
@@ -12,7 +13,7 @@ namespace GS_TermoAtiva_C_.Views
     /// </summary>
     public class SplashForm : Form
     {
-        private ProgressBar _progressBar = null!;
+        private HopeProgressBar _progressBar = null!;
         private Label _lblStatus = null!;
         private System.Windows.Forms.Timer _timerAnimacao = null!;
         private TotemRepository? _repository;
@@ -28,42 +29,61 @@ namespace GS_TermoAtiva_C_.Views
             Tema.ConfigurarJanelaTotem(this);
             this.Text = "TermoAtiva - Carregando Sistema";
 
-            // Painel central de boas-vindas
-            var pnlCentro = new Panel
+            var pnlCentro = new KioskCardPanel(Tema.AzulPrimario)
             {
-                Size = new Size(820, 520),
+                Size = new Size(880, 480),
                 BackColor = Tema.FundoCard,
-                Padding = new Padding(30)
+                Padding = new Padding(44, 36, 44, 36)
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 6,
+                BackColor = Color.Transparent
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36f));  // Tag Institucional
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));  // Título Principal
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));  // Subtítulo
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Descrição
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));  // Status de Inicialização
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64f));  // Barra de Progresso + Versão
+
+            var lblTag = new Label
+            {
+                Text = "DEFESA CIVIL MUNICIPAL  |  REDE DE PROTEÇÃO CLIMÁTICA",
+                Font = Tema.FonteTag,
+                ForeColor = Tema.LaranjaAviso,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill
             };
 
             var lblLogo = new Label
             {
-                Text = "☀️ TERMOATIVA",
-                Font = Tema.FonteTitulo,
-                ForeColor = Tema.LaranjaAviso,
+                Text = "TERMOATIVA  |  TERMINAL URBANO",
+                Font = new Font("Segoe UI", 24f, FontStyle.Bold),
+                ForeColor = Tema.TextoPrincipal,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Top,
-                Height = 70
+                Dock = DockStyle.Fill
             };
 
             var lblSubtitulo = new Label
             {
-                Text = "Terminal Interativo Urbano de Mitigação ao Calor Extremo",
+                Text = "Sistema de Mitigação ao Calor Extremo e Apoio ao Cidadão",
                 Font = Tema.FonteSubtitulo,
                 ForeColor = Tema.AzulPrimario,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Top,
-                Height = 45
+                Dock = DockStyle.Fill
             };
 
             var lblDescricao = new Label
             {
-                Text = "Proteção e acolhimento térmico prioritário para trabalhadores ao ar livre,\nidosos, crianças e munícipes em vulnerabilidade climática.",
+                Text = "Atendimento público de alta visibilidade voltado a trabalhadores ao ar livre,\nidosos, garis e munícipes em situação de vulnerabilidade térmica.",
                 Font = Tema.FonteGeral,
                 ForeColor = Tema.TextoSecundario,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Top,
-                Height = 80
+                Dock = DockStyle.Fill
             };
 
             _lblStatus = new Label
@@ -72,48 +92,56 @@ namespace GS_TermoAtiva_C_.Views
                 Font = Tema.FonteGeralDestaque,
                 ForeColor = Tema.TextoPrincipal,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Dock = DockStyle.Bottom,
-                Height = 50
+                Dock = DockStyle.Fill
             };
 
-            _progressBar = new ProgressBar
+            var pnlProgresso = new System.Windows.Forms.Panel
             {
-                Dock = DockStyle.Bottom,
-                Height = 35,
-                Minimum = 0,
-                Maximum = 100,
-                Value = 10,
-                Style = ProgressBarStyle.Continuous
+                Dock = DockStyle.Fill,
+                Padding = new Padding(40, 4, 40, 0)
+            };
+
+            _progressBar = new HopeProgressBar
+            {
+                Dock = DockStyle.Top,
+                Height = 24,
+                ValueNumber = 10,
+                FullBarColor = Tema.AzulPrimario,
+                BarColor = Tema.AzulPrimario,
+                BaseColor = Tema.FundoSecundario
             };
 
             var lblVersao = new Label
             {
-                Text = "Modo Totem / Quiosque Offline Resiliente | .NET 8+",
+                Text = "Modo Quiosque Autônomo Resiliente  |  .NET 8.0 Windows Forms",
                 Font = Tema.FontePequena,
-                ForeColor = Tema.TextoSecundario,
+                ForeColor = Tema.TextoSuave,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Bottom,
-                Height = 35
+                Height = 26
             };
 
-            pnlCentro.Controls.Add(_lblStatus);
-            pnlCentro.Controls.Add(_progressBar);
-            pnlCentro.Controls.Add(lblVersao);
-            pnlCentro.Controls.Add(lblDescricao);
-            pnlCentro.Controls.Add(lblSubtitulo);
-            pnlCentro.Controls.Add(lblLogo);
+            pnlProgresso.Controls.Add(_progressBar);
+            pnlProgresso.Controls.Add(lblVersao);
 
+            layout.Controls.Add(lblTag, 0, 0);
+            layout.Controls.Add(lblLogo, 0, 1);
+            layout.Controls.Add(lblSubtitulo, 0, 2);
+            layout.Controls.Add(lblDescricao, 0, 3);
+            layout.Controls.Add(_lblStatus, 0, 4);
+            layout.Controls.Add(pnlProgresso, 0, 5);
+
+            pnlCentro.Controls.Add(layout);
             this.Controls.Add(pnlCentro);
 
             this.Resize += (s, e) =>
             {
                 pnlCentro.Location = new Point(
-                    (this.ClientSize.Width - pnlCentro.Width) / 2,
-                    (this.ClientSize.Height - pnlCentro.Height) / 2
+                    Math.Max(20, (this.ClientSize.Width - pnlCentro.Width) / 2),
+                    Math.Max(20, (this.ClientSize.Height - pnlCentro.Height) / 2)
                 );
             };
 
-            // Timer de 2 segundos (20 passos de 100ms)
             _timerAnimacao = new System.Windows.Forms.Timer
             {
                 Interval = 100
@@ -131,24 +159,23 @@ namespace GS_TermoAtiva_C_.Views
         {
             _ticksContador++;
             int progresso = Math.Min(_ticksContador * 5, 100);
-            _progressBar.Value = progresso;
+            _progressBar.ValueNumber = progresso;
 
             if (_ticksContador == 5)
             {
-                _lblStatus.Text = "Carregando catálogo de bebedouros e áreas de sombra...";
+                _lblStatus.Text = "Carregando catálogo georreferenciado de bebedouros e áreas de sombra...";
                 try
                 {
                     _repository = new TotemRepository();
                 }
                 catch
                 {
-                    // Fallback seguro
                     _repository = new TotemRepository();
                 }
             }
             else if (_ticksContador == 12)
             {
-                _lblStatus.Text = "Validando alertas térmicos e índice UV...";
+                _lblStatus.Text = "Validando alertas térmicos e parâmetros de estresse de calor...";
             }
             else if (_ticksContador >= 20)
             {

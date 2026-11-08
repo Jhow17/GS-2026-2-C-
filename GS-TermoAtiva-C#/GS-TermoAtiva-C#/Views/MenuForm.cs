@@ -2,13 +2,13 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using GS_TermoAtiva_C_.Models;
+using ReaLTaiizor.Controls;
 
 namespace GS_TermoAtiva_C_.Views
 {
     /// <summary>
-    /// Tela principal pública do Totem TermoAtiva.
-    /// Projetada com ergonomia tátil para uso sob luz solar direta por pessoas idosas,
-    /// trabalhadores ao ar livre e cidadãos sem telefone celular.
+    /// Tela principal pública do Totem TermoAtiva (Interface de Autoatendimento Urbano).
+    /// Apresenta telemetria climática em tempo real e módulos de navegação por toque em grade 2x2.
     /// </summary>
     public class MenuForm : Form
     {
@@ -31,35 +31,33 @@ namespace GS_TermoAtiva_C_.Views
             Tema.ConfigurarJanelaTotem(this);
             this.Text = "TermoAtiva - Totem Urbano de Refúgio Climático";
 
-            // Layout principal em 3 seções: Topo (Clima), Centro (Ações de Toque) e Rodapé (Relógio e Operador)
             var pnlPrincipal = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
                 RowCount = 3,
                 BackColor = Tema.FundoPrincipal,
-                Padding = new Padding(24)
+                Padding = new Padding(28, 22, 28, 22)
             };
 
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 220f)); // Topo Climático
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));   // Ações Centrais
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 90f));   // Rodapé
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 210f)); // Painel de Telemetria Climática Superior
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Grade 2x2 de Módulos de Autoatendimento
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 82f));  // Barra de Status e Controle Operacional
 
-            // 1. TOPO: Painel de Monitoramento Climático em Tempo Real
+            // 1. TOPO: Painel de Telemetria Climática
             var pnlTopo = CriarPainelClimatico();
             pnlPrincipal.Controls.Add(pnlTopo, 0, 0);
 
-            // 2. CENTRO: Três Grandes Botões de Toque
-            var pnlBotoes = CriarPainelBotoesAcao();
+            // 2. CENTRO: Grade de Módulos Interativos (4 Módulos incluindo Mapa)
+            var pnlBotoes = CriarPainelModulosAcao();
             pnlPrincipal.Controls.Add(pnlBotoes, 0, 1);
 
-            // 3. RODAPÉ: Relógio e Acesso Operador
+            // 3. RODAPÉ: Relógio Digital e Acesso Restrito
             var pnlRodape = CriarPainelRodape();
             pnlPrincipal.Controls.Add(pnlRodape, 0, 2);
 
             this.Controls.Add(pnlPrincipal);
 
-            // Timer para atualização do relógio em tempo real
             _relogioTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _relogioTimer.Tick += (s, e) => AtualizarRelogio();
             _relogioTimer.Start();
@@ -70,14 +68,14 @@ namespace GS_TermoAtiva_C_.Views
             AtualizarRelogio();
         }
 
-        private Panel CriarPainelClimatico()
+        private System.Windows.Forms.Panel CriarPainelClimatico()
         {
-            var cardClima = new Panel
+            var cardClima = new KioskCardPanel(Tema.AzulPrimario)
             {
                 Dock = DockStyle.Fill,
                 BackColor = Tema.FundoCard,
-                Padding = new Padding(20),
-                Margin = new Padding(0, 0, 0, 15)
+                Padding = new Padding(26, 18, 26, 18),
+                Margin = new Padding(0, 0, 0, 14)
             };
 
             var tableClima = new TableLayoutPanel
@@ -86,163 +84,214 @@ namespace GS_TermoAtiva_C_.Views
                 ColumnCount = 2,
                 RowCount = 1
             };
-            tableClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60f));
-            tableClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40f));
+            tableClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            tableClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
 
-            // Lado Esquerdo: Identificação do Totem e Cidade
-            var pnlIdentificacao = new Panel { Dock = DockStyle.Fill };
+            // Coluna Esquerda: Cabeçalho Institucional Sem Truncamento + Badge de Risco
+            var pnlEsquerda = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                Margin = new Padding(0)
+            };
+            pnlEsquerda.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f)); // Tag superior
+            pnlEsquerda.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f)); // Título principal
+            pnlEsquerda.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f)); // Subtítulo
+            pnlEsquerda.RowStyles.Add(new RowStyle(SizeType.Percent, 100f)); // Badge de Risco
+
+            var lblTag = new Label
+            {
+                Text = "SISTEMA MUNICIPAL DE MITIGAÇÃO TÉRMICA  |  TERMINAL DE AUTOATENDIMENTO",
+                Font = Tema.FonteTag,
+                ForeColor = Tema.AzulPrimario,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
 
             var lblTitulo = new Label
             {
-                Text = "☀️ TERMOATIVA | TOTEM DE APOIO CLIMÁTICO",
+                Text = "TERMOATIVA  |  APOIO CLIMÁTICO URBANO",
                 Font = Tema.FonteTitulo,
-                ForeColor = Tema.AzulPrimario,
-                Dock = DockStyle.Top,
-                Height = 45,
+                ForeColor = Tema.TextoPrincipal,
+                Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
             var lblSubtitulo = new Label
             {
-                Text = "Defesa Civil & Saúde Urbana • Ponto de Hidratação e Acolhimento Térmico",
-                Font = Tema.FonteGeralDestaque,
+                Text = "Toque em um dos módulos abaixo para localizar água potável, áreas de sombra ou orientações.",
+                Font = Tema.FonteGeral,
                 ForeColor = Tema.TextoSecundario,
-                Dock = DockStyle.Top,
-                Height = 35,
+                Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            var pnlContainerBadge = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 10, 30, 2)
             };
 
             _lblBadgeRisco = new Label
             {
-                Text = "ALERTA: RISCO EXTREMO",
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Text = "CLASSIFICAÇÃO ATUAL: RISCO EXTREMO",
+                Font = Tema.FonteGeralDestaque,
                 ForeColor = Color.White,
                 BackColor = Tema.VermelhoAlerta,
-                Dock = DockStyle.Bottom,
-                Height = 55,
+                Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter
             };
+            Tema.AplicarRegiaoArredondada(_lblBadgeRisco, 6);
+            pnlContainerBadge.Controls.Add(_lblBadgeRisco);
 
-            pnlIdentificacao.Controls.Add(_lblBadgeRisco);
-            pnlIdentificacao.Controls.Add(lblSubtitulo);
-            pnlIdentificacao.Controls.Add(lblTitulo);
+            pnlEsquerda.Controls.Add(lblTag, 0, 0);
+            pnlEsquerda.Controls.Add(lblTitulo, 0, 1);
+            pnlEsquerda.Controls.Add(lblSubtitulo, 0, 2);
+            pnlEsquerda.Controls.Add(pnlContainerBadge, 0, 3);
 
-            // Lado Direito: Métricas em Destaque Térmico
-            var pnlMetricas = new FlowLayoutPanel
+            // Coluna Direita: Três Cartões de Telemetria (Temperatura, Sensação e Umidade)
+            var tableMetricas = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
-                Padding = new Padding(0, 10, 0, 0)
-            };
-
-            _lblTemperatura = new Label
-            {
-                Text = "36.5°C",
-                Font = Tema.FonteDestaqueTermico,
-                ForeColor = Tema.VermelhoAlerta,
-                AutoSize = true,
-                Margin = new Padding(20, 0, 0, 0)
-            };
-
-            var pnlDetalhesMetricas = new Panel
-            {
-                Size = new Size(240, 100),
+                ColumnCount = 3,
+                RowCount = 1,
                 Margin = new Padding(0)
             };
+            tableMetricas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
+            tableMetricas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
+            tableMetricas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
 
-            _lblSensacao = new Label
-            {
-                Text = "Sensação: 40.2°C",
-                Font = Tema.FonteSubtitulo,
-                ForeColor = Tema.TextoPrincipal,
-                Dock = DockStyle.Top,
-                Height = 35,
-                TextAlign = ContentAlignment.MiddleRight
-            };
+            var cardTemp = CriarBlocoTelemetria("TEMPERATURA", out _lblTemperatura, "36.5°C", Tema.VermelhoAlerta);
+            var cardSensacao = CriarBlocoTelemetria("SENSAÇÃO TÉRMICA", out _lblSensacao, "40.2°C", Tema.LaranjaAviso);
+            var cardUmidade = CriarBlocoTelemetria("UMIDADE DO AR", out _lblUmidade, "28%", Tema.AzulPrimario);
 
-            _lblUmidade = new Label
-            {
-                Text = "Umidade do Ar: 28%",
-                Font = Tema.FonteGeralDestaque,
-                ForeColor = Tema.TextoSecundario,
-                Dock = DockStyle.Top,
-                Height = 30,
-                TextAlign = ContentAlignment.MiddleRight
-            };
+            tableMetricas.Controls.Add(cardTemp, 0, 0);
+            tableMetricas.Controls.Add(cardSensacao, 1, 0);
+            tableMetricas.Controls.Add(cardUmidade, 2, 0);
 
-            pnlDetalhesMetricas.Controls.Add(_lblUmidade);
-            pnlDetalhesMetricas.Controls.Add(_lblSensacao);
-
-            pnlMetricas.Controls.Add(_lblTemperatura);
-            pnlMetricas.Controls.Add(pnlDetalhesMetricas);
-
-            tableClima.Controls.Add(pnlIdentificacao, 0, 0);
-            tableClima.Controls.Add(pnlMetricas, 1, 0);
+            tableClima.Controls.Add(pnlEsquerda, 0, 0);
+            tableClima.Controls.Add(tableMetricas, 1, 0);
 
             cardClima.Controls.Add(tableClima);
             return cardClima;
         }
 
-        private Panel CriarPainelBotoesAcao()
+        private static System.Windows.Forms.Panel CriarBlocoTelemetria(string rotulo, out Label lblValor, string valorInicial, Color corDestaque)
         {
-            var pnlAcoes = new TableLayoutPanel
+            var card = new KioskCardPanel(corDestaque)
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 3,
-                Margin = new Padding(0)
+                BackColor = Color.FromArgb(248, 250, 252),
+                Margin = new Padding(6, 4, 0, 4),
+                Padding = new Padding(14, 12, 10, 12)
             };
 
-            pnlAcoes.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
-            pnlAcoes.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
-            pnlAcoes.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
-
-            // BOTÃO 1: ALERTA DE CALOR AGORA
-            var btnAlerta = new Button
+            var lblRotulo = new Label
             {
-                Text = "🌡️  ALERTA DE CALOR AGORA\nInstruções imediatas de proteção à saúde, riscos e sintomas",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 15)
+                Text = rotulo,
+                Font = Tema.FonteTag,
+                ForeColor = Tema.TextoSecundario,
+                Dock = DockStyle.Top,
+                Height = 24,
+                TextAlign = ContentAlignment.MiddleLeft
             };
-            Tema.EstilizarBotao(btnAlerta, Tema.VermelhoAlerta, 110);
-            btnAlerta.Click += (s, e) => AbrirAlerta();
 
-            // BOTÃO 2: ONDE BEBER ÁGUA / DESCANSAR
-            var btnPontos = new Button
+            lblValor = new Label
             {
-                Text = "💧  ONDE BEBER ÁGUA / DESCANSAR\nConsulte bebedouros públicos, praças arborizadas e postos climatizados",
+                Text = valorInicial,
+                Font = new Font("Segoe UI", 24f, FontStyle.Bold),
+                ForeColor = corDestaque,
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 15)
+                TextAlign = ContentAlignment.MiddleLeft
             };
-            Tema.EstilizarBotao(btnPontos, Tema.AzulPrimario, 110);
-            btnPontos.Click += (s, e) => AbrirPontosApoio();
 
-            // BOTÃO 3: INFORMAR PROBLEMA EM BEBEDOURO
-            var btnOcorrencia = new Button
-            {
-                Text = "⚠️  INFORMAR PROBLEMA EM BEBEDOURO\nAvise se a torneira está quebrada, sem água ou o local está fechado",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0)
-            };
-            Tema.EstilizarBotao(btnOcorrencia, Tema.LaranjaAviso, 110);
-            btnOcorrencia.Click += (s, e) => AbrirOcorrencia();
-
-            pnlAcoes.Controls.Add(btnAlerta, 0, 0);
-            pnlAcoes.Controls.Add(btnPontos, 0, 1);
-            pnlAcoes.Controls.Add(btnOcorrencia, 0, 2);
-
-            return pnlAcoes;
+            card.Controls.Add(lblValor);
+            card.Controls.Add(lblRotulo);
+            return card;
         }
 
-        private Panel CriarPainelRodape()
+        private System.Windows.Forms.Panel CriarPainelModulosAcao()
         {
-            var pnlRodape = new Panel
+            var gridModulos = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Margin = new Padding(-8, 0, -8, 0)
+            };
+
+            gridModulos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            gridModulos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            gridModulos.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            gridModulos.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+
+            // MÓDULO 01: ALERTA DE CALOR AGORA
+            var tileAlerta = new KioskActionTile(
+                "01",
+                "ALERTA DE CALOR AGORA",
+                "Consulte orientações imediatas de saúde pública, intervalos de hidratação e sinais de risco térmico.",
+                Tema.VermelhoAlerta)
+            {
+                Dock = DockStyle.Fill
+            };
+            tileAlerta.Click += (s, e) => AbrirAlerta();
+
+            // MÓDULO 02: ONDE BEBER ÁGUA / DESCANSAR
+            var tilePontos = new KioskActionTile(
+                "02",
+                "ONDE BEBER ÁGUA / DESCANSAR",
+                "Veja a lista de bebedouros públicos, áreas arborizadas de descanso e postos de saúde climatizados.",
+                Tema.AzulPrimario)
+            {
+                Dock = DockStyle.Fill
+            };
+            tilePontos.Click += (s, e) => AbrirPontosApoio();
+
+            // MÓDULO 03: MAPA DE REFÚGIO E RECURSOS (Novo requisito 3.1)
+            var tileMapa = new KioskActionTile(
+                "03",
+                "MAPA DE REFÚGIO E RECURSOS",
+                "Visualize a distribuição geográfica dos pontos de apoio e o perímetro de cobertura do totem.",
+                Tema.CianoMapa)
+            {
+                Dock = DockStyle.Fill
+            };
+            tileMapa.Click += (s, e) => AbrirMapa();
+
+            // MÓDULO 04: INFORMAR PROBLEMA EM BEBEDOURO
+            var tileOcorrencia = new KioskActionTile(
+                "04",
+                "INFORMAR PROBLEMA EM BEBEDOURO",
+                "Notifique a zeladoria municipal caso um ponto esteja sem água, com torneira danificada ou fechado.",
+                Tema.LaranjaAviso)
+            {
+                Dock = DockStyle.Fill
+            };
+            tileOcorrencia.Click += (s, e) => AbrirOcorrencia();
+
+            gridModulos.Controls.Add(tileAlerta, 0, 0);
+            gridModulos.Controls.Add(tilePontos, 1, 0);
+            gridModulos.Controls.Add(tileMapa, 0, 1);
+            gridModulos.Controls.Add(tileOcorrencia, 1, 1);
+
+            var wrapper = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0)
+            };
+            wrapper.Controls.Add(gridModulos);
+            return wrapper;
+        }
+
+        private System.Windows.Forms.Panel CriarPainelRodape()
+        {
+            var pnlRodape = new KioskCardPanel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Tema.FundoCard,
-                Padding = new Padding(15, 10, 15, 10),
-                Margin = new Padding(0, 15, 0, 0)
+                Padding = new Padding(20, 12, 20, 12),
+                Margin = new Padding(0, 14, 0, 0)
             };
 
             _lblDataHora = new Label
@@ -250,7 +299,7 @@ namespace GS_TermoAtiva_C_.Views
                 Font = Tema.FonteGeralDestaque,
                 ForeColor = Tema.TextoPrincipal,
                 Dock = DockStyle.Left,
-                Width = 420,
+                Width = 480,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -259,21 +308,22 @@ namespace GS_TermoAtiva_C_.Views
                 Dock = DockStyle.Right,
                 FlowDirection = FlowDirection.RightToLeft,
                 AutoSize = true,
-                WrapContents = false
+                WrapContents = false,
+                Padding = new Padding(0, 2, 0, 0)
             };
 
-            var btnSair = new Button
+            var btnSair = new System.Windows.Forms.Button
             {
-                Text = "Sair do Totem",
-                Size = new Size(160, 55),
+                Text = "Sair do Sistema",
+                Size = new Size(165, 48),
                 Margin = new Padding(10, 0, 0, 0)
             };
-            Tema.EstilizarBotaoSecundario(btnSair, 55);
+            Tema.EstilizarBotaoSecundario(btnSair, 48);
             btnSair.Click += (s, e) =>
             {
                 var confirm = MessageBox.Show(
-                    "Deseja realmente encerrar a aplicação do Totem?",
-                    "Encerrar Totem",
+                    "Deseja realmente encerrar a operação deste terminal?",
+                    "Encerrar Terminal",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question
                 );
@@ -283,13 +333,10 @@ namespace GS_TermoAtiva_C_.Views
                 }
             };
 
-            var btnOperador = new Button
-            {
-                Text = "🔒 Acesso Operador",
-                Size = new Size(200, 55),
-                Margin = new Padding(10, 0, 0, 0)
-            };
-            Tema.EstilizarBotaoSecundario(btnOperador, 55);
+            var btnOperador = Tema.CriarBotaoReaLTaiizor("Acesso Operador", Tema.FundoHeader, 48, 8);
+            btnOperador.Width = 195;
+            btnOperador.Font = Tema.FonteGeralDestaque;
+            btnOperador.Margin = new Padding(10, 0, 0, 0);
             btnOperador.Click += (s, e) => AbrirModoAdmin();
 
             pnlBotoesRodape.Controls.Add(btnSair);
@@ -305,11 +352,11 @@ namespace GS_TermoAtiva_C_.Views
         {
             var alerta = _repository.ObterAlertaAtual();
             _lblTemperatura.Text = $"{alerta.TemperaturaAtual:F1}°C";
-            _lblSensacao.Text = $"Sensação: {alerta.SensacaoTermica:F1}°C";
-            _lblUmidade.Text = $"Umidade do Ar: {alerta.UmidadeRelativa}%";
+            _lblSensacao.Text = $"{alerta.SensacaoTermica:F1}°C";
+            _lblUmidade.Text = $"{alerta.UmidadeRelativa}%";
 
             string risco = alerta.ClassificarNivelRisco();
-            _lblBadgeRisco.Text = $"ALERTA DE SAÚDE: {risco.ToUpperInvariant()}";
+            _lblBadgeRisco.Text = $"NÍVEL DE ALERTA OFICIAL: {risco.ToUpperInvariant()}";
 
             if (risco == "Risco Extremo")
             {
@@ -330,31 +377,37 @@ namespace GS_TermoAtiva_C_.Views
 
         private void AtualizarRelogio()
         {
-            _lblDataHora.Text = $"🕒 {DateTime.Now:dddd, dd 'de' MMMM 'de' yyyy • HH:mm:ss}";
+            _lblDataHora.Text = $"HORÁRIO LOCAL: {DateTime.Now:dd/MM/yyyy  |  HH:mm:ss}";
         }
 
         private void AbrirAlerta()
         {
-            var form = new AlertaForm(_repository.ObterAlertaAtual());
+            using var form = new AlertaForm(_repository.ObterAlertaAtual());
             form.ShowDialog(this);
             AtualizarDadosClimaticos();
         }
 
         private void AbrirPontosApoio()
         {
-            var form = new PontosApoioForm(_repository);
+            using var form = new PontosApoioForm(_repository);
+            form.ShowDialog(this);
+        }
+
+        private void AbrirMapa()
+        {
+            using var form = new MapaForm(_repository);
             form.ShowDialog(this);
         }
 
         private void AbrirOcorrencia()
         {
-            var form = new OcorrenciaForm(_repository);
+            using var form = new OcorrenciaForm(_repository);
             form.ShowDialog(this);
         }
 
         private void AbrirModoAdmin()
         {
-            var auth = new AdminAuthForm(_repository);
+            using var auth = new AdminAuthForm(_repository);
             auth.ShowDialog(this);
             AtualizarDadosClimaticos();
         }

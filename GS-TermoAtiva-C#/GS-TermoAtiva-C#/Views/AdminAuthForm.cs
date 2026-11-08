@@ -7,13 +7,22 @@ namespace GS_TermoAtiva_C_.Views
 {
     /// <summary>
     /// Modal de autenticação segura para acesso restrito de operadores e equipes de zeladoria municipal.
-    /// Inclui teclado numérico virtual para facilitar digitação em quiosques de autoatendimento.
+    /// Contém campos de Usuário/Identificador e Senha, além de Teclado Virtual sob demanda (oculto por padrão).
     /// </summary>
     public class AdminAuthForm : Form
     {
+        private const string UsuarioPadrao = "admin";
         private const string SenhaPadrao = "1234";
+
         private readonly TotemRepository _repository;
+        private TextBox _txtUsuario = null!;
         private TextBox _txtSenha = null!;
+        private TextBox _campoAtivo = null!;
+        private System.Windows.Forms.Panel _pnlContainerTeclado = null!;
+        private System.Windows.Forms.Button _btnAlternarTeclado = null!;
+
+        private const int AlturaSemTeclado = 430;
+        private const int AlturaComTeclado = 720;
 
         public AdminAuthForm(TotemRepository repository)
         {
@@ -24,7 +33,7 @@ namespace GS_TermoAtiva_C_.Views
         private void ConstruirInterface()
         {
             this.Text = "Autenticação - Operador Municipal";
-            this.Size = new Size(520, 680);
+            this.Size = new Size(560, AlturaSemTeclado);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
@@ -33,197 +42,342 @@ namespace GS_TermoAtiva_C_.Views
             this.ForeColor = Tema.TextoPrincipal;
             this.Font = Tema.FonteGeral;
 
-            var pnlContainer = new Panel
+            var pnlRoot = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(24)
+                Padding = new Padding(22)
+            };
+
+            var cardLogin = new KioskCardPanel(Tema.AzulPrimario)
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Tema.FundoCard,
+                Padding = new Padding(26, 20, 26, 20)
+            };
+
+            // Cabeçalho do Modal
+            var lblTag = new Label
+            {
+                Text = "CONTROLE DE ACESSO OPERACIONAL",
+                Font = Tema.FonteTag,
+                ForeColor = Tema.AzulPrimario,
+                Dock = DockStyle.Top,
+                Height = 22,
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
             var lblTitulo = new Label
             {
-                Text = "🔒 ACESSO RESTRITO",
+                Text = "AUTENTICAÇÃO DO OPERADOR",
                 Font = Tema.FonteSubtitulo,
-                ForeColor = Tema.AzulPrimario,
+                ForeColor = Tema.TextoPrincipal,
                 Dock = DockStyle.Top,
-                Height = 40,
-                TextAlign = ContentAlignment.MiddleCenter
+                Height = 34,
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
-            var lblSubtitulo = new Label
+            var lblDica = new Label
             {
-                Text = "Digite o PIN / Senha do operador de zeladoria:",
-                Font = Tema.FonteGeral,
-                ForeColor = Tema.TextoSecundario,
+                Text = "Credenciais de homologação acadêmica: Usuário 'admin'  |  Senha '1234'",
+                Font = Tema.FontePequenaBold,
+                ForeColor = Tema.LaranjaAviso,
                 Dock = DockStyle.Top,
-                Height = 30,
-                TextAlign = ContentAlignment.MiddleCenter
+                Height = 26,
+                TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Campo de Senha
-            var pnlInput = new Panel
+            // Painel de Campos (Usuário + Senha)
+            var pnlCampos = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 70,
-                Padding = new Padding(30, 10, 30, 10)
+                Height = 148,
+                ColumnCount = 1,
+                RowCount = 4,
+                Padding = new Padding(0, 8, 0, 6)
+            };
+            pnlCampos.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            pnlCampos.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
+            pnlCampos.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            pnlCampos.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
+
+            var lblUsuario = new Label
+            {
+                Text = "Usuário / Identificador Funcional:",
+                Font = Tema.FontePequenaBold,
+                ForeColor = Tema.TextoPrincipal,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.BottomLeft
+            };
+
+            _txtUsuario = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 14f, FontStyle.Regular),
+                BorderStyle = BorderStyle.FixedSingle,
+                MaxLength = 30
+            };
+            _txtUsuario.Enter += (s, e) => _campoAtivo = _txtUsuario;
+            _txtUsuario.KeyDown += TratadorTeclaEnter;
+
+            var lblSenha = new Label
+            {
+                Text = "Senha / PIN de Segurança:",
+                Font = Tema.FontePequenaBold,
+                ForeColor = Tema.TextoPrincipal,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.BottomLeft
             };
 
             _txtSenha = new TextBox
             {
                 Dock = DockStyle.Fill,
                 UseSystemPasswordChar = true,
-                Font = new Font("Segoe UI", 22f, FontStyle.Bold),
-                TextAlign = HorizontalAlignment.Center,
-                MaxLength = 10
+                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                BorderStyle = BorderStyle.FixedSingle,
+                MaxLength = 20
             };
-            _txtSenha.KeyDown += (s, e) =>
-            {
-                if (e.KeyCode == Keys.Enter)
-                {
-                    e.SuppressKeyPress = true;
-                    ValidarAcesso();
-                }
-            };
-            pnlInput.Controls.Add(_txtSenha);
+            _txtSenha.Enter += (s, e) => _campoAtivo = _txtSenha;
+            _txtSenha.KeyDown += TratadorTeclaEnter;
 
-            // Dica de avaliação acadêmica
-            var lblDica = new Label
+            _campoAtivo = _txtUsuario;
+
+            pnlCampos.Controls.Add(lblUsuario, 0, 0);
+            pnlCampos.Controls.Add(_txtUsuario, 0, 1);
+            pnlCampos.Controls.Add(lblSenha, 0, 2);
+            pnlCampos.Controls.Add(_txtSenha, 0, 3);
+
+            // Botão Alternador do Teclado Virtual (Sob Demanda)
+            var pnlBarraTeclado = new System.Windows.Forms.Panel
             {
-                Text = "🔑 Dica para avaliação do projeto: Digite a senha '1234'",
-                Font = Tema.FontePequenaBold,
-                ForeColor = Tema.LaranjaAviso,
                 Dock = DockStyle.Top,
-                Height = 30,
-                TextAlign = ContentAlignment.MiddleCenter
+                Height = 46,
+                Padding = new Padding(0, 4, 0, 4)
             };
 
-            // Teclado Numérico Virtual Touchscreen
-            var pnlTeclado = new TableLayoutPanel
+            _btnAlternarTeclado = new System.Windows.Forms.Button
             {
-                Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 4,
-                Padding = new Padding(20, 10, 20, 10)
+                Text = "Teclado Virtual (Exibir)",
+                Dock = DockStyle.Left,
+                Width = 220
             };
-            pnlTeclado.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            pnlTeclado.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            pnlTeclado.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            Tema.EstilizarBotaoSecundario(_btnAlternarTeclado, 38);
+            _btnAlternarTeclado.Font = Tema.FontePequenaBold;
+            _btnAlternarTeclado.Click += (s, e) => AlternarVisibilidadeTeclado();
 
-            for (int r = 0; r < 4; r++)
-            {
-                pnlTeclado.RowStyles.Add(new RowStyle(SizeType.Percent, 25f));
-            }
+            pnlBarraTeclado.Controls.Add(_btnAlternarTeclado);
 
-            // Adiciona botões 1 a 9
-            for (int i = 1; i <= 9; i++)
-            {
-                string digito = i.ToString();
-                var btn = CriarBotaoTeclado(digito);
-                btn.Click += (s, e) => InserirDigito(digito);
-                int linha = (i - 1) / 3;
-                int coluna = (i - 1) % 3;
-                pnlTeclado.Controls.Add(btn, coluna, linha);
-            }
+            // Container do Teclado Virtual Alfanumérico (Oculto por padrão: Visible = false)
+            _pnlContainerTeclado = CriarPainelTecladoVirtual();
+            _pnlContainerTeclado.Visible = false;
 
-            // Linha 4: Limpar (C), 0, Apagar (⌫)
-            var btnLimpar = CriarBotaoTeclado("Limpar", Color.FromArgb(239, 68, 68), Color.White);
-            btnLimpar.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
-            btnLimpar.Click += (s, e) => _txtSenha.Clear();
-
-            var btnZero = CriarBotaoTeclado("0");
-            btnZero.Click += (s, e) => InserirDigito("0");
-
-            var btnApagar = CriarBotaoTeclado("⌫", Color.FromArgb(243, 244, 246), Tema.TextoPrincipal);
-            btnApagar.Click += (s, e) =>
-            {
-                if (_txtSenha.Text.Length > 0)
-                {
-                    _txtSenha.Text = _txtSenha.Text.Substring(0, _txtSenha.Text.Length - 1);
-                }
-            };
-
-            pnlTeclado.Controls.Add(btnLimpar, 0, 3);
-            pnlTeclado.Controls.Add(btnZero, 1, 3);
-            pnlTeclado.Controls.Add(btnApagar, 2, 3);
-
-            // Botões de Ação Inferiores (Confirmar / Cancelar)
-            var pnlAcoes = new Panel
+            // Barra de Ações Inferior (Cancelar / Entrar)
+            var pnlAcoes = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 120,
-                Padding = new Padding(20, 10, 20, 10)
+                Height = 54,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(0, 6, 0, 0)
             };
+            pnlAcoes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            pnlAcoes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
 
-            var btnConfirmar = new Button
-            {
-                Text = "Entrar no Painel",
-                Dock = DockStyle.Top,
-                Height = 50
-            };
-            Tema.EstilizarBotao(btnConfirmar, Tema.AzulPrimario, 50);
-            btnConfirmar.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
-            btnConfirmar.Click += (s, e) => ValidarAcesso();
-
-            var btnCancelar = new Button
+            var btnCancelar = new System.Windows.Forms.Button
             {
                 Text = "Cancelar",
-                Dock = DockStyle.Bottom,
-                Height = 45
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 6, 0)
             };
-            Tema.EstilizarBotaoSecundario(btnCancelar, 45);
+            Tema.EstilizarBotaoSecundario(btnCancelar, 46);
             btnCancelar.Click += (s, e) => this.Close();
 
-            pnlAcoes.Controls.Add(btnConfirmar);
-            pnlAcoes.Controls.Add(btnCancelar);
+            var btnConfirmar = Tema.CriarBotaoReaLTaiizor("Autenticar Operador", Tema.AzulPrimario, 46, 8);
+            btnConfirmar.Dock = DockStyle.Fill;
+            btnConfirmar.Font = Tema.FonteGeralDestaque;
+            btnConfirmar.Margin = new Padding(6, 0, 0, 0);
+            btnConfirmar.Click += (s, e) => ValidarAcesso();
 
-            pnlContainer.Controls.Add(pnlTeclado);
-            pnlContainer.Controls.Add(pnlAcoes);
-            pnlContainer.Controls.Add(lblDica);
-            pnlContainer.Controls.Add(pnlInput);
-            pnlContainer.Controls.Add(lblSubtitulo);
-            pnlContainer.Controls.Add(lblTitulo);
+            pnlAcoes.Controls.Add(btnCancelar, 0, 0);
+            pnlAcoes.Controls.Add(btnConfirmar, 1, 0);
 
-            this.Controls.Add(pnlContainer);
+            cardLogin.Controls.Add(_pnlContainerTeclado);
+            cardLogin.Controls.Add(pnlAcoes);
+            cardLogin.Controls.Add(pnlBarraTeclado);
+            cardLogin.Controls.Add(pnlCampos);
+            cardLogin.Controls.Add(lblDica);
+            cardLogin.Controls.Add(lblTitulo);
+            cardLogin.Controls.Add(lblTag);
+
+            pnlRoot.Controls.Add(cardLogin);
+            this.Controls.Add(pnlRoot);
         }
 
-        private static Button CriarBotaoTeclado(string texto, Color? corFundo = null, Color? corTexto = null)
+        private System.Windows.Forms.Panel CriarPainelTecladoVirtual()
         {
-            var btn = new Button
+            var container = new System.Windows.Forms.Panel
             {
-                Text = texto,
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
-                BackColor = corFundo ?? Tema.FundoCard,
-                ForeColor = corTexto ?? Tema.TextoPrincipal,
+                Padding = new Padding(0, 8, 0, 8)
+            };
+
+            var gridTeclas = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 6,
+                RowCount = 4,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(6)
+            };
+
+            for (int c = 0; c < 6; c++)
+            {
+                gridTeclas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.66f));
+            }
+            for (int r = 0; r < 4; r++)
+            {
+                gridTeclas.RowStyles.Add(new RowStyle(SizeType.Percent, 25f));
+            }
+
+            string[] teclas =
+            {
+                "1", "2", "3", "4", "5", "6",
+                "7", "8", "9", "0", "a", "d",
+                "m", "i", "n", "u", "s", "r",
+                "admin", "1234", "LIMPAR", "APAGAR", "CAMPO", "OK"
+            };
+
+            for (int idx = 0; idx < teclas.Length; idx++)
+            {
+                string valorTecla = teclas[idx];
+                var btn = CriarBotaoTecla(valorTecla);
+
+                int linha = idx / 6;
+                int coluna = idx % 6;
+                gridTeclas.Controls.Add(btn, coluna, linha);
+            }
+
+            container.Controls.Add(gridTeclas);
+            return container;
+        }
+
+        private System.Windows.Forms.Button CriarBotaoTecla(string valorTecla)
+        {
+            bool especial = valorTecla is "LIMPAR" or "APAGAR" or "CAMPO" or "OK" or "admin" or "1234";
+
+            Color corFundo = valorTecla switch
+            {
+                "LIMPAR" => Tema.VermelhoAlerta,
+                "OK" => Tema.VerdeSucesso,
+                "admin" or "1234" => Tema.CorFundoBebedouro,
+                _ => Tema.FundoCard
+            };
+
+            Color corTexto = valorTecla switch
+            {
+                "LIMPAR" or "OK" => Color.White,
+                "admin" or "1234" => Tema.CorTextoBebedouro,
+                _ => Tema.TextoPrincipal
+            };
+
+            var btn = new System.Windows.Forms.Button
+            {
+                Text = valorTecla,
+                Dock = DockStyle.Fill,
+                Font = especial ? Tema.FontePequenaBold : Tema.FonteGeralDestaque,
+                BackColor = corFundo,
+                ForeColor = corTexto,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Margin = new Padding(4)
+                Margin = new Padding(3),
+                TabStop = false
             };
             btn.FlatAppearance.BorderColor = Tema.CinzaBorda;
             btn.FlatAppearance.BorderSize = 1;
+
+            btn.Click += (s, e) => ProcessarToqueTeclado(valorTecla);
             return btn;
         }
 
-        private void InserirDigito(string digito)
+        private void ProcessarToqueTeclado(string tecla)
         {
-            if (_txtSenha.Text.Length < 10)
+            _campoAtivo ??= _txtUsuario;
+
+            switch (tecla)
             {
-                _txtSenha.Text += digito;
+                case "LIMPAR":
+                    _campoAtivo.Clear();
+                    break;
+
+                case "APAGAR":
+                    if (_campoAtivo.Text.Length > 0)
+                    {
+                        _campoAtivo.Text = _campoAtivo.Text[..^1];
+                    }
+                    break;
+
+                case "CAMPO":
+                    _campoAtivo = (_campoAtivo == _txtUsuario) ? _txtSenha : _txtUsuario;
+                    _campoAtivo.Focus();
+                    break;
+
+                case "OK":
+                    ValidarAcesso();
+                    break;
+
+                case "admin":
+                    _txtUsuario.Text = "admin";
+                    _campoAtivo = _txtSenha;
+                    _txtSenha.Focus();
+                    break;
+
+                case "1234":
+                    _txtSenha.Text = "1234";
+                    break;
+
+                default:
+                    if (_campoAtivo.Text.Length < _campoAtivo.MaxLength)
+                    {
+                        _campoAtivo.Text += tecla;
+                    }
+                    break;
+            }
+        }
+
+        private void AlternarVisibilidadeTeclado()
+        {
+            bool exibir = !_pnlContainerTeclado.Visible;
+            _pnlContainerTeclado.Visible = exibir;
+            this.Height = exibir ? AlturaComTeclado : AlturaSemTeclado;
+            _btnAlternarTeclado.Text = exibir ? "Teclado Virtual (Ocultar)" : "Teclado Virtual (Exibir)";
+            this.CenterToParent();
+        }
+
+        private void TratadorTeclaEnter(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                ValidarAcesso();
             }
         }
 
         private void ValidarAcesso()
         {
-            if (_txtSenha.Text == SenhaPadrao)
+            string usuarioInformado = _txtUsuario.Text.Trim();
+            string senhaInformada = _txtSenha.Text.Trim();
+
+            if (string.Equals(usuarioInformado, UsuarioPadrao, StringComparison.OrdinalIgnoreCase) &&
+                senhaInformada == SenhaPadrao)
             {
                 this.Hide();
-                var formAdmin = new AdminPontosForm(_repository);
+                using var formAdmin = new AdminPontosForm(_repository);
                 formAdmin.ShowDialog(this.Owner);
                 this.Close();
             }
             else
             {
                 MessageBox.Show(
-                    "Senha ou PIN incorreto! Verifique a credencial do operador e tente novamente.\n(Dica para avaliação: 1234)",
+                    "Credenciais inválidas. Verifique o Usuário e a Senha informados.\n(Credenciais de avaliação: Usuário 'admin' | Senha '1234')",
                     "Acesso Negado",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning

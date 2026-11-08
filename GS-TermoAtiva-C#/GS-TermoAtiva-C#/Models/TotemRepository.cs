@@ -46,18 +46,15 @@ namespace GS_TermoAtiva_C_.Models
         {
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
-            // Busca diretório de projeto navegando para cima na hierarquia
             DirectoryInfo? atual = new DirectoryInfo(baseDir);
             while (atual != null)
             {
-                // Verifica se este diretório contém o .csproj do projeto
                 string csprojPath = Path.Combine(atual.FullName, "GS-TermoAtiva-C#.csproj");
                 if (File.Exists(csprojPath))
                 {
                     return Path.Combine(atual.FullName, "Data");
                 }
 
-                // Verifica se há subpasta com o projeto
                 string subProjeto = Path.Combine(atual.FullName, "GS-TermoAtiva-C#", "GS-TermoAtiva-C#");
                 if (Directory.Exists(subProjeto) && File.Exists(Path.Combine(subProjeto, "GS-TermoAtiva-C#.csproj")))
                 {
@@ -67,7 +64,6 @@ namespace GS_TermoAtiva_C_.Models
                 atual = atual.Parent;
             }
 
-            // Fallback para pasta Data no diretório de execução atual
             return Path.Combine(baseDir, "Data");
         }
 
@@ -85,7 +81,6 @@ namespace GS_TermoAtiva_C_.Models
                         Directory.CreateDirectory(_diretorioData);
                     }
 
-                    // Carrega ou gera seed para Pontos de Apoio
                     if (File.Exists(_arquivoPontosJson))
                     {
                         string json = File.ReadAllText(_arquivoPontosJson);
@@ -94,19 +89,27 @@ namespace GS_TermoAtiva_C_.Models
                             var carregados = JsonSerializer.Deserialize<List<PontoApoio>>(json, _jsonOptions);
                             if (carregados != null && carregados.Count > 0)
                             {
-                                _pontosMemoria = carregados;
+                                // Se o arquivo antigo não possuía os campos decompostos de CEP/Logradouro nos itens de seed, atualiza
+                                bool precisaAtualizarSeed = carregados.All(p => string.IsNullOrWhiteSpace(p.CEP) && string.IsNullOrWhiteSpace(p.Logradouro));
+                                if (precisaAtualizarSeed)
+                                {
+                                    _pontosMemoria = ObterSeedInicialPontos();
+                                    SalvarPontosNoDisco();
+                                }
+                                else
+                                {
+                                    _pontosMemoria = carregados;
+                                }
                             }
                         }
                     }
 
-                    // Se continuou vazio ou o arquivo não existia, aplica Seed Inicial
                     if (_pontosMemoria.Count == 0)
                     {
                         _pontosMemoria = ObterSeedInicialPontos();
                         SalvarPontosNoDisco();
                     }
 
-                    // Carrega ou inicializa Ocorrências
                     if (File.Exists(_arquivoOcorrenciasJson))
                     {
                         string json = File.ReadAllText(_arquivoOcorrenciasJson);
@@ -126,7 +129,6 @@ namespace GS_TermoAtiva_C_.Models
                 }
                 catch (Exception ex)
                 {
-                    // Fallback em caso de erro de I/O para garantir que a interface do totem continue funcional
                     System.Diagnostics.Debug.WriteLine($"[TotemRepository] Aviso na inicialização: {ex.Message}");
                     if (_pontosMemoria.Count == 0)
                     {
@@ -137,17 +139,72 @@ namespace GS_TermoAtiva_C_.Models
         }
 
         /// <summary>
-        /// Fornece carga inicial realista com 5 pontos urbanos estratégicos de alívio térmico.
+        /// Fornece carga inicial realista com 5 pontos urbanos estratégicos de alívio térmico com endereço estruturado.
         /// </summary>
         private static List<PontoApoio> ObterSeedInicialPontos()
         {
             return new List<PontoApoio>
             {
-                new PontoApoio(1, "Bebedouro Público - Praça da Sé", TipoPontoApoio.BebedouroPublico, "Praça da Sé, s/n - Centro Histórico", 120, true),
-                new PontoApoio(2, "Refúgio Verde - Parque Trianon", TipoPontoApoio.AreaSombraDescanso, "Av. Paulista, 1578 - Bela Vista", 350, true),
-                new PontoApoio(3, "Posto Climatizado - UBS Santa Cecília", TipoPontoApoio.PostoSaudeClimatizado, "R. Vitorino Carmilo, 599 - Santa Cecília", 580, true),
-                new PontoApoio(4, "Bebedouro Público - Terminal Rodoviário Tietê", TipoPontoApoio.BebedouroPublico, "Av. Cruzeiro do Sul, 1800 - Santana", 850, true),
-                new PontoApoio(5, "Área de Descanso Sombreada - Largo do Arouche", TipoPontoApoio.AreaSombraDescanso, "Largo do Arouche, Centro", 420, true)
+                new PontoApoio(
+                    1,
+                    "Bebedouro Público - Praça da Sé",
+                    TipoPontoApoio.BebedouroPublico,
+                    "01001-000",
+                    "Praça da Sé",
+                    "s/n",
+                    "Sé",
+                    "São Paulo",
+                    "SP",
+                    true,
+                    120),
+                new PontoApoio(
+                    2,
+                    "Refúgio Verde - Parque Trianon",
+                    TipoPontoApoio.AreaSombraDescanso,
+                    "01407-200",
+                    "Avenida Paulista",
+                    "1578",
+                    "Bela Vista",
+                    "São Paulo",
+                    "SP",
+                    true,
+                    350),
+                new PontoApoio(
+                    3,
+                    "Posto Climatizado - UBS Santa Cecília",
+                    TipoPontoApoio.PostoSaudeClimatizado,
+                    "01153-000",
+                    "Rua Vitorino Carmilo",
+                    "599",
+                    "Santa Cecília",
+                    "São Paulo",
+                    "SP",
+                    true,
+                    580),
+                new PontoApoio(
+                    4,
+                    "Bebedouro Público - Terminal Rodoviário Tietê",
+                    TipoPontoApoio.BebedouroPublico,
+                    "02021-001",
+                    "Avenida Cruzeiro do Sul",
+                    "1800",
+                    "Santana",
+                    "São Paulo",
+                    "SP",
+                    true,
+                    850),
+                new PontoApoio(
+                    5,
+                    "Área de Descanso Sombreada - Largo do Arouche",
+                    TipoPontoApoio.AreaSombraDescanso,
+                    "01219-010",
+                    "Largo do Arouche",
+                    "100",
+                    "República",
+                    "São Paulo",
+                    "SP",
+                    true,
+                    420)
             };
         }
 
@@ -163,6 +220,29 @@ namespace GS_TermoAtiva_C_.Models
             File.WriteAllText(_arquivoOcorrenciasJson, json);
         }
 
+        private static PontoApoio ClonarPonto(PontoApoio p)
+        {
+            var clone = new PontoApoio(
+                p.Id,
+                p.Nome,
+                p.Tipo,
+                p.CEP,
+                p.Logradouro,
+                p.Numero,
+                p.Bairro,
+                p.Cidade,
+                p.UF,
+                p.Disponivel,
+                p.DistanciaMetros);
+
+            if (string.IsNullOrWhiteSpace(p.Logradouro) && !string.IsNullOrWhiteSpace(p.Endereco))
+            {
+                clone.Endereco = p.Endereco;
+            }
+
+            return clone;
+        }
+
         // -------------------------------------------------------------
         // MÉTODOS PÚBLICOS DE CONSULTA E OPERAÇÃO (MUNÍCIPE E ADMIN)
         // -------------------------------------------------------------
@@ -176,7 +256,7 @@ namespace GS_TermoAtiva_C_.Models
             {
                 return _pontosMemoria
                     .OrderBy(p => p.DistanciaMetros)
-                    .Select(p => new PontoApoio(p.Id, p.Nome, p.Tipo, p.Endereco, p.DistanciaMetros, p.Disponivel))
+                    .Select(ClonarPonto)
                     .ToList();
             }
         }
@@ -196,13 +276,13 @@ namespace GS_TermoAtiva_C_.Models
 
                 return query
                     .OrderBy(p => p.DistanciaMetros)
-                    .Select(p => new PontoApoio(p.Id, p.Nome, p.Tipo, p.Endereco, p.DistanciaMetros, p.Disponivel))
+                    .Select(ClonarPonto)
                     .ToList();
             }
         }
 
         /// <summary>
-        /// Cadastra um novo recurso de apoio gerando próximo ID sequencial. Exclusivo de administrador.
+        /// Cadastra um novo recurso de apoio gerando próximo ID sequencial e calculando distância automática.
         /// </summary>
         public PontoApoio CadastrarPontoApoio(PontoApoio novoPonto)
         {
@@ -212,6 +292,7 @@ namespace GS_TermoAtiva_C_.Models
             {
                 int proximoId = _pontosMemoria.Count > 0 ? _pontosMemoria.Max(p => p.Id) + 1 : 1;
                 novoPonto.Id = proximoId;
+                novoPonto.DistanciaMetros = novoPonto.CalcularDistanciaDoTotem();
                 _pontosMemoria.Add(novoPonto);
                 SalvarPontosNoDisco();
                 return novoPonto;
@@ -245,7 +326,7 @@ namespace GS_TermoAtiva_C_.Models
 
             lock (_lockArquivo)
             {
-                _ocorrenciasMemoria.Insert(0, ocorrencia); // Mais recentes primeiro
+                _ocorrenciasMemoria.Insert(0, ocorrencia);
                 SalvarOcorrenciasNoDisco();
             }
         }

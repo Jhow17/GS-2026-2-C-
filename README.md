@@ -188,12 +188,7 @@ dotnet run --project "GS-TermoAtiva-C#/GS-TermoAtiva-C#/GS-TermoAtiva-C#.csproj"
 
 ---
 
-## Integrantes da Equipe FIAP
 
-- **Jonathan Henrique da Silva** — RM: `561139`
-- **Gabrielly Candido Camargo da Silva** — RM: `560916`
-- **João Víctor da Silva Ferreira** — RM: `560439`
-- **Luíza Saraçol Ribeiro** — RM: `560200`
 
 **Repositório Oficial no GitHub:**  
 [https://github.com/Jhow17/GS-2026-2-C-.git](https://github.com/Jhow17/GS-2026-2-C-.git)

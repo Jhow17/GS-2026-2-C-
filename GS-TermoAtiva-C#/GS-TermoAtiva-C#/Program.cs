@@ -1,17 +1,21 @@
+using System;
+using System.Windows.Forms;
+using GS_TermoAtiva_C_.Views;
+
 namespace GS_TermoAtiva_C_
 {
     internal static class Program
     {
         /// <summary>
-        ///  The main entry point for the application.
+        /// Ponto de entrada principal da aplicação TermoAtiva Totem.
+        /// Inicializa a configuração visual de alta densidade de pixels (DPI)
+        /// e executa a tela de inicialização e diagnóstico (SplashForm).
         /// </summary>
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.Run(new SplashForm());
         }
     }
 }

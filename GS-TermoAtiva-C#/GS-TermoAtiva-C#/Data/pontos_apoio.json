@@ -1,0 +1,72 @@
+[
+  {
+    "Id": 1,
+    "Nome": "Bebedouro Público - Praça da Sé",
+    "Tipo": 1,
+    "CEP": "01001-000",
+    "Logradouro": "Praça da Sé",
+    "Numero": "s/n",
+    "Bairro": "Sé",
+    "Cidade": "São Paulo",
+    "UF": "SP",
+    "Endereco": "Praça da Sé, s/n - Sé, São Paulo/SP",
+    "DistanciaMetros": 120,
+    "Disponivel": true
+  },
+  {
+    "Id": 2,
+    "Nome": "Refúgio Verde - Parque Trianon",
+    "Tipo": 2,
+    "CEP": "01407-200",
+    "Logradouro": "Avenida Paulista",
+    "Numero": "1578",
+    "Bairro": "Bela Vista",
+    "Cidade": "São Paulo",
+    "UF": "SP",
+    "Endereco": "Avenida Paulista, 1578 - Bela Vista, São Paulo/SP",
+    "DistanciaMetros": 350,
+    "Disponivel": true
+  },
+  {
+    "Id": 3,
+    "Nome": "Posto Climatizado - UBS Santa Cecília",
+    "Tipo": 3,
+    "CEP": "01153-000",
+    "Logradouro": "Rua Vitorino Carmilo",
+    "Numero": "599",
+    "Bairro": "Santa Cecília",
+    "Cidade": "São Paulo",
+    "UF": "SP",
+    "Endereco": "Rua Vitorino Carmilo, 599 - Santa Cecília, São Paulo/SP",
+    "DistanciaMetros": 580,
+    "Disponivel": true
+  },
+  {
+    "Id": 4,
+    "Nome": "Bebedouro Público - Terminal Rodoviário Tietê",
+    "Tipo": 1,
+    "CEP": "02021-001",
+    "Logradouro": "Avenida Cruzeiro do Sul",
+    "Numero": "1800",
+    "Bairro": "Santana",
+    "Cidade": "São Paulo",
+    "UF": "SP",
+    "Endereco": "Avenida Cruzeiro do Sul, 1800 - Santana, São Paulo/SP",
+    "DistanciaMetros": 850,
+    "Disponivel": true
+  },
+  {
+    "Id": 5,
+    "Nome": "Área de Descanso Sombreada - Largo do Arouche",
+    "Tipo": 2,
+    "CEP": "01219-010",
+    "Logradouro": "Largo do Arouche",
+    "Numero": "100",
+    "Bairro": "República",
+    "Cidade": "São Paulo",
+    "UF": "SP",
+    "Endereco": "Largo do Arouche, 100 - República, São Paulo/SP",
+    "DistanciaMetros": 420,
+    "Disponivel": true
+  }
+]

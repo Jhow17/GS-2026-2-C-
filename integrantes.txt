@@ -1,0 +1,12 @@
+PROJETO: TermoAtiva - Totem Urbano de Refúgio Climático (CitizenTech)
+DISCIPLINA: C# Software Development
+INSTITUIÇÃO: FIAP - Engenharia de Software
+
+INTEGRANTES:
+- Jonathan Henrique da Silva | RM: 561139
+- Gabrielly Candido Camargo da Silva | RM: 560916
+- João Víctor da Silva Ferreira | RM: 560439
+- Luíza Saraçol Ribeiro | RM: 560200
+
+LINK DO REPOSITÓRIO GITHUB:
+https://github.com/Jhow17/GS-2026-2-C-.git

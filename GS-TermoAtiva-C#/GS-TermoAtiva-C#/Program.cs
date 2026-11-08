@@ -11,7 +11,8 @@ namespace GS_TermoAtiva_C_
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            // Ponto de entrada provisório: substituído pelo SplashForm na etapa de inicialização do totem.
+            Application.Run(new Form { Text = "TermoAtiva" });
         }
     }
 }

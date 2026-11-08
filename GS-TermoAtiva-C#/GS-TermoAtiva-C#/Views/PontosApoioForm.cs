@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using GS_TermoAtiva_C_.Models;
@@ -8,16 +7,16 @@ namespace GS_TermoAtiva_C_.Views
 {
     /// <summary>
     /// Tela do Fluxo 2 (Munícipe) - Consulta pública SOMENTE LEITURA de recursos urbanos
-    /// de alívio e refúgio térmico (bebedouros públicos, parques sombreados e postos climatizados).
+    /// de alívio e refúgio térmico com diferenciação visual cromática por categoria.
     /// </summary>
     public class PontosApoioForm : Form
     {
         private readonly TotemRepository _repository;
         private DataGridView _grid = null!;
-        private Button _btnFiltroTodos = null!;
-        private Button _btnFiltroBebedouros = null!;
-        private Button _btnFiltroSombra = null!;
-        private Button _btnFiltroPostos = null!;
+        private System.Windows.Forms.Button _btnFiltroTodos = null!;
+        private System.Windows.Forms.Button _btnFiltroBebedouros = null!;
+        private System.Windows.Forms.Button _btnFiltroSombra = null!;
+        private System.Windows.Forms.Button _btnFiltroPostos = null!;
         private TipoPontoApoio? _filtroAtual = null;
 
         public PontosApoioForm(TotemRepository repository)
@@ -37,48 +36,23 @@ namespace GS_TermoAtiva_C_.Views
                 ColumnCount = 1,
                 RowCount = 4,
                 BackColor = Tema.FundoPrincipal,
-                Padding = new Padding(28)
+                Padding = new Padding(28, 22, 28, 22)
             };
 
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 100f)); // Cabeçalho e Título
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 85f));  // Filtros Rápidos por Toque
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Grade de Pontos (DataGridView)
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 95f));  // Botão Voltar ao Menu
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 122f)); // Cabeçalho sem corte
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 74f));  // Barra de Filtros Rápidos
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Grade com cores por categoria
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 78f));  // Botão Voltar
 
-            // 1. CABEÇALHO
-            var pnlHeader = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Tema.FundoCard,
-                Padding = new Padding(20, 15, 20, 15),
-                Margin = new Padding(0, 0, 0, 12)
-            };
+            // 1. CABEÇALHO PADRONIZADO
+            var header = Tema.CriarCabecalhoPadrao(
+                "REDE PÚBLICA DE ACOLHIMENTO E HIDRATAÇÃO",
+                "PONTOS DE ALÍVIO TÉRMICO E HIDRATAÇÃO PRÓXIMOS",
+                "Consulte abaixo os pontos gratuitos para beber água potável, descansar à sombra ou se abrigar em ambiente climatizado.",
+                Tema.AzulPrimario);
+            pnlPrincipal.Controls.Add(header, 0, 0);
 
-            var lblTitulo = new Label
-            {
-                Text = "💧 PONTOS DE ALÍVIO TÉRMICO E HIDRATAÇÃO PRÓXIMOS",
-                Font = Tema.FonteTitulo,
-                ForeColor = Tema.AzulPrimario,
-                Dock = DockStyle.Top,
-                Height = 40,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            var lblInstrucao = new Label
-            {
-                Text = "Consulte abaixo os pontos públicos gratuitos para beber água, descansar à sombra ou se refrescar em ar-condicionado.",
-                Font = Tema.FonteGeral,
-                ForeColor = Tema.TextoSecundario,
-                Dock = DockStyle.Bottom,
-                Height = 25,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            pnlHeader.Controls.Add(lblInstrucao);
-            pnlHeader.Controls.Add(lblTitulo);
-            pnlPrincipal.Controls.Add(pnlHeader, 0, 0);
-
-            // 2. BOTÕES DE FILTRO RÁPIDO POR TOQUE
+            // 2. BARRA DE FILTROS POR CATEGORIA (SEM EMOJIS)
             var pnlFiltros = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -91,10 +65,10 @@ namespace GS_TermoAtiva_C_.Views
             pnlFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
             pnlFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
 
-            _btnFiltroTodos = CriarBotaoFiltro("📋 Todos", null);
-            _btnFiltroBebedouros = CriarBotaoFiltro("💧 Bebedouros", TipoPontoApoio.BebedouroPublico);
-            _btnFiltroSombra = CriarBotaoFiltro("🌳 Sombra / Descanso", TipoPontoApoio.AreaSombraDescanso);
-            _btnFiltroPostos = CriarBotaoFiltro("🏥 Postos Climatizados", TipoPontoApoio.PostoSaudeClimatizado);
+            _btnFiltroTodos = CriarBotaoFiltro("TODOS OS RECURSOS", null);
+            _btnFiltroBebedouros = CriarBotaoFiltro("BEBEDOUROS PÚBLICOS", TipoPontoApoio.BebedouroPublico);
+            _btnFiltroSombra = CriarBotaoFiltro("SOMBRA E DESCANSO", TipoPontoApoio.AreaSombraDescanso);
+            _btnFiltroPostos = CriarBotaoFiltro("POSTOS CLIMATIZADOS", TipoPontoApoio.PostoSaudeClimatizado);
 
             pnlFiltros.Controls.Add(_btnFiltroTodos, 0, 0);
             pnlFiltros.Controls.Add(_btnFiltroBebedouros, 1, 0);
@@ -102,12 +76,12 @@ namespace GS_TermoAtiva_C_.Views
             pnlFiltros.Controls.Add(_btnFiltroPostos, 3, 0);
             pnlPrincipal.Controls.Add(pnlFiltros, 0, 1);
 
-            // 3. GRADE DE CONSULTA SOMENTE LEITURA
-            var cardGrid = new Panel
+            // 3. GRADE DE CONSULTA SOMENTE LEITURA COM CORES POR CATEGORIA
+            var cardGrid = new KioskCardPanel(Tema.AzulPrimario)
             {
                 Dock = DockStyle.Fill,
                 BackColor = Tema.FundoCard,
-                Padding = new Padding(16),
+                Padding = new Padding(18),
                 Margin = new Padding(0, 0, 0, 12)
             };
 
@@ -121,14 +95,9 @@ namespace GS_TermoAtiva_C_.Views
             cardGrid.Controls.Add(_grid);
             pnlPrincipal.Controls.Add(cardGrid, 0, 2);
 
-            // 4. BOTÃO VOLTAR
-            var btnVoltar = new Button
-            {
-                Text = "⬅  VOLTAR AO MENU PRINCIPAL",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 10, 0, 0)
-            };
-            Tema.EstilizarBotao(btnVoltar, Tema.AzulPrimario, 85);
+            // 4. BOTÃO LARGO INFERIOR
+            var btnVoltar = Tema.CriarBotaoReaLTaiizor("VOLTAR AO MENU PRINCIPAL", Tema.AzulPrimario, 66);
+            btnVoltar.Dock = DockStyle.Fill;
             btnVoltar.Click += (s, e) => this.Close();
             pnlPrincipal.Controls.Add(btnVoltar, 0, 3);
 
@@ -138,18 +107,19 @@ namespace GS_TermoAtiva_C_.Views
             CarregarDados();
         }
 
-        private Button CriarBotaoFiltro(string texto, TipoPontoApoio? tipo)
+        private System.Windows.Forms.Button CriarBotaoFiltro(string texto, TipoPontoApoio? tipo)
         {
-            var btn = new Button
+            var btn = new System.Windows.Forms.Button
             {
                 Text = texto,
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
+                Font = Tema.FonteGeralDestaque,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Margin = new Padding(4)
+                Margin = new Padding(4, 0, 4, 0)
             };
-            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Tema.CinzaBorda;
             btn.Click += (s, e) =>
             {
                 _filtroAtual = tipo;
@@ -161,23 +131,25 @@ namespace GS_TermoAtiva_C_.Views
 
         private void AtualizarDestaqueFiltros()
         {
-            AplicarEstiloFiltro(_btnFiltroTodos, _filtroAtual == null);
-            AplicarEstiloFiltro(_btnFiltroBebedouros, _filtroAtual == TipoPontoApoio.BebedouroPublico);
-            AplicarEstiloFiltro(_btnFiltroSombra, _filtroAtual == TipoPontoApoio.AreaSombraDescanso);
-            AplicarEstiloFiltro(_btnFiltroPostos, _filtroAtual == TipoPontoApoio.PostoSaudeClimatizado);
+            AplicarEstiloFiltro(_btnFiltroTodos, _filtroAtual == null, Tema.FundoHeader, Color.White);
+            AplicarEstiloFiltro(_btnFiltroBebedouros, _filtroAtual == TipoPontoApoio.BebedouroPublico, Tema.CorTextoBebedouro, Color.White);
+            AplicarEstiloFiltro(_btnFiltroSombra, _filtroAtual == TipoPontoApoio.AreaSombraDescanso, Tema.CorTextoSombra, Color.White);
+            AplicarEstiloFiltro(_btnFiltroPostos, _filtroAtual == TipoPontoApoio.PostoSaudeClimatizado, Tema.CorTextoPosto, Color.White);
         }
 
-        private static void AplicarEstiloFiltro(Button btn, bool ativo)
+        private static void AplicarEstiloFiltro(System.Windows.Forms.Button btn, bool ativo, Color corAtivoFundo, Color corAtivoTexto)
         {
             if (ativo)
             {
-                btn.BackColor = Tema.AzulPrimario;
-                btn.ForeColor = Color.White;
+                btn.BackColor = corAtivoFundo;
+                btn.ForeColor = corAtivoTexto;
+                btn.FlatAppearance.BorderColor = corAtivoFundo;
             }
             else
             {
-                btn.BackColor = Color.FromArgb(238, 242, 246);
+                btn.BackColor = Tema.FundoCard;
                 btn.ForeColor = Tema.TextoPrincipal;
+                btn.FlatAppearance.BorderColor = Tema.CinzaBorda;
             }
         }
 
@@ -188,14 +160,14 @@ namespace GS_TermoAtiva_C_.Views
             _grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Nome",
-                HeaderText = "LOCAL / PONTO DE RECURSO",
-                FillWeight = 32
+                HeaderText = "NOME DO LOCAL / RECURSO",
+                FillWeight = 28
             });
 
             _grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Tipo",
-                HeaderText = "CATEGORIA",
+                HeaderText = "CATEGORIA DO PONTO",
                 FillWeight = 22
             });
 
@@ -203,21 +175,21 @@ namespace GS_TermoAtiva_C_.Views
             {
                 Name = "Endereco",
                 HeaderText = "ENDEREÇO COMPLETO",
-                FillWeight = 30
+                FillWeight = 32
             });
 
             _grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Distancia",
-                HeaderText = "DISTÂNCIA",
-                FillWeight = 16
+                HeaderText = "DISTÂNCIA ESTIMADA",
+                FillWeight = 14
             });
 
             _grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Status",
-                HeaderText = "SITUAÇÃO ATUAL",
-                FillWeight = 18
+                HeaderText = "SITUAÇÃO OPERACIONAL",
+                FillWeight = 16
             });
 
             _grid.CellFormatting += Grid_CellFormatting;
@@ -227,23 +199,61 @@ namespace GS_TermoAtiva_C_.Views
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
 
-            if (_grid.Columns[e.ColumnIndex].Name == "Status" && e.Value != null)
+            var row = _grid.Rows[e.RowIndex];
+            string categoria = row.Cells["Tipo"].Value?.ToString() ?? string.Empty;
+
+            // Define cores sutis de fundo para a linha inteira e destaque forte para a célula de categoria (Item 3.3)
+            Color corFundoLinha = Tema.FundoCard;
+            Color corFundoBadge = Tema.FundoCard;
+            Color corTextoBadge = Tema.TextoPrincipal;
+
+            if (categoria.Contains("Bebedouro", StringComparison.OrdinalIgnoreCase))
             {
-                string status = e.Value.ToString() ?? "";
-                if (status.Contains("Disponível"))
+                corFundoLinha = Color.FromArgb(240, 249, 255); // Tom sutil de azul
+                corFundoBadge = Tema.CorFundoBebedouro;
+                corTextoBadge = Tema.CorTextoBebedouro;
+            }
+            else if (categoria.Contains("Sombra", StringComparison.OrdinalIgnoreCase))
+            {
+                corFundoLinha = Color.FromArgb(240, 253, 244); // Tom sutil de verde
+                corFundoBadge = Tema.CorFundoSombra;
+                corTextoBadge = Tema.CorTextoSombra;
+            }
+            else if (categoria.Contains("Climatizado", StringComparison.OrdinalIgnoreCase))
+            {
+                corFundoLinha = Color.FromArgb(255, 251, 235); // Tom sutil de laranja/âmbar
+                corFundoBadge = Tema.CorFundoPosto;
+                corTextoBadge = Tema.CorTextoPosto;
+            }
+
+            e.CellStyle!.BackColor = corFundoLinha;
+            e.CellStyle.SelectionBackColor = Tema.AjustarBrilho(corFundoBadge, 0.94f);
+            e.CellStyle.SelectionForeColor = Tema.TextoPrincipal;
+
+            string colName = _grid.Columns[e.ColumnIndex].Name;
+            if (colName == "Tipo")
+            {
+                e.CellStyle.BackColor = corFundoBadge;
+                e.CellStyle.ForeColor = corTextoBadge;
+                e.CellStyle.Font = Tema.FonteGeralDestaque;
+            }
+            else if (colName == "Status" && e.Value != null)
+            {
+                string status = e.Value.ToString() ?? string.Empty;
+                if (status.Contains("Disponível", StringComparison.OrdinalIgnoreCase))
                 {
-                    e.CellStyle!.ForeColor = Tema.VerdeSucesso;
-                    e.CellStyle.Font = new Font("Segoe UI", 13f, FontStyle.Bold);
+                    e.CellStyle.ForeColor = Tema.VerdeSucesso;
+                    e.CellStyle.Font = Tema.FonteGeralDestaque;
                 }
                 else
                 {
-                    e.CellStyle!.ForeColor = Tema.VermelhoAlerta;
-                    e.CellStyle.Font = new Font("Segoe UI", 13f, FontStyle.Bold);
+                    e.CellStyle.ForeColor = Tema.VermelhoAlerta;
+                    e.CellStyle.Font = Tema.FonteGeralDestaque;
                 }
             }
-            else if (_grid.Columns[e.ColumnIndex].Name == "Distancia" && e.Value != null)
+            else if (colName == "Distancia")
             {
-                e.CellStyle!.Font = new Font("Segoe UI", 13f, FontStyle.Bold);
+                e.CellStyle.Font = Tema.FonteGeralDestaque;
                 e.CellStyle.ForeColor = Tema.AzulPrimario;
             }
         }
@@ -255,7 +265,7 @@ namespace GS_TermoAtiva_C_.Views
 
             foreach (var p in pontos)
             {
-                string status = p.Disponivel ? "✓ Disponível" : "⚠️ Em Manutenção";
+                string status = p.Disponivel ? "DISPONÍVEL" : "EM MANUTENÇÃO";
                 _grid.Rows.Add(
                     p.Nome,
                     p.ObterTipoFormatado(),
@@ -264,6 +274,8 @@ namespace GS_TermoAtiva_C_.Views
                     status
                 );
             }
+
+            _grid.ClearSelection();
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -12,8 +13,8 @@ namespace GS_TermoAtiva_C_.Views
 {
     /// <summary>
     /// Painel de administração e zeladoria municipal do Totem TermoAtiva.
-    /// Integra consulta assíncrona ao webservice ViaCEP para autopreenchimento de endereço,
-    /// cálculo automático de distância ao totem e auditoria completa de ocorrências.
+    /// Integra consulta assíncrona ao webservice ViaCEP, CRUD completo de pontos de apoio,
+    /// auditoria/resolução de ocorrências, gestão de logins de operadores e telemetria climática em JSON.
     /// </summary>
     public class AdminPontosForm : Form
     {
@@ -23,8 +24,14 @@ namespace GS_TermoAtiva_C_.Views
         };
 
         private readonly TotemRepository _repository;
+        private readonly OperadorMunicipal? _operadorAutenticado;
+        private readonly OpenWeatherMapService _openWeatherService = new();
 
-        // Campos de Cadastro de Recurso (Endereço Decomposto + ViaCEP)
+        // Campos de Cadastro / Edição de Recurso (Endereço Decomposto + ViaCEP)
+        private int? _pontoEmEdicaoId = null;
+        private Label _lblSecaoCadastro = null!;
+        private ReaLTaiizor.Controls.ParrotButton _btnCadastrarPonto = null!;
+        private System.Windows.Forms.Button _btnCancelarEdicao = null!;
         private TextBox _txtNome = null!;
         private ComboBox _cboTipo = null!;
         private TextBox _txtCep = null!;
@@ -37,13 +44,28 @@ namespace GS_TermoAtiva_C_.Views
         private CheckBox _chkDisponivel = null!;
         private Label _lblStatusCep = null!;
 
+        // Tabelas de Gestão (Abas 1, 2 e 3)
         private DataGridView _gridPontos = null!;
         private DataGridView _gridOcorrencias = null!;
+        private DataGridView _gridOperadores = null!;
         private string _ultimoCepConsultado = string.Empty;
 
-        public AdminPontosForm(TotemRepository repository)
+        // Campos da Aba 3: Telemetria Climática & Operadores
+        private TextBox _txtTempClima = null!;
+        private TextBox _txtUmidadeClima = null!;
+        private TextBox _txtBairroClima = null!;
+        private ComboBox _cboCamadaPadrao = null!;
+        private Label _lblResumoClimaSalvo = null!;
+
+        private TextBox _txtNovoOpUsuario = null!;
+        private TextBox _txtNovoOpSenha = null!;
+        private TextBox _txtNovoOpNome = null!;
+        private TextBox _txtNovoOpCargo = null!;
+
+        public AdminPontosForm(TotemRepository repository, OperadorMunicipal? operadorAutenticado = null)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _operadorAutenticado = operadorAutenticado;
             ConstruirInterface();
         }
 
@@ -62,8 +84,8 @@ namespace GS_TermoAtiva_C_.Views
             };
 
             pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 118f)); // Cabeçalho Padronizado Sem Truncamento
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 235f)); // Seção 1: Cadastro com Integração ViaCEP
-            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Seção 2: Abas de Gestão e Auditoria
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Absolute, 235f)); // Seção 1: Cadastro/Edição com Integração ViaCEP
+            pnlPrincipal.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));  // Seção 2: Abas de Gestão, Ocorrências, Clima e Logins
 
             // 1. CABEÇALHO DO ADMINISTRADOR COM BOTÃO DE SAÍDA À DIREITA
             var btnVoltar = new System.Windows.Forms.Button
@@ -75,19 +97,23 @@ namespace GS_TermoAtiva_C_.Views
             Tema.EstilizarBotaoSecundario(btnVoltar, 48);
             btnVoltar.Click += (s, e) => this.Close();
 
+            string operadorTag = _operadorAutenticado != null
+                ? $"OPERADOR AUTENTICADO: {_operadorAutenticado.NomeCompleto.ToUpperInvariant()} ({_operadorAutenticado.Usuario})"
+                : "GESTÃO OPERACIONAL E ZELADORIA MUNICIPAL";
+
             var pnlHeader = Tema.CriarCabecalhoPadrao(
-                "GESTÃO OPERACIONAL E ZELADORIA MUNICIPAL",
+                operadorTag,
                 "PAINEL ADMINISTRATIVO DE RECURSOS CLIMÁTICOS",
-                "Cadastre novos pontos de apoio via CEP, gerencie interdições técnicas e audite os relatos dos cidadãos.",
+                "Cadastre ou edite pontos via CEP, audite relatos de cidadãos e gerencie a telemetria e logins em JSON.",
                 Tema.AzulPrimario,
                 btnVoltar);
             pnlPrincipal.Controls.Add(pnlHeader, 0, 0);
 
-            // 2. SEÇÃO 1: FORMULÁRIO DE CADASTRO COM VIACEP (SEM DISTÂNCIA MANUAL)
+            // 2. SEÇÃO 1: FORMULÁRIO DE CADASTRO / EDIÇÃO COM VIACEP
             var pnlCadastro = CriarSecaoCadastroViaCep();
             pnlPrincipal.Controls.Add(pnlCadastro, 0, 1);
 
-            // 3. SEÇÃO 2: ABAS COM TABELAS DE PONTOS E OCORRÊNCIAS
+            // 3. SEÇÃO 2: ABAS COM TABELAS DE PONTOS, OCORRÊNCIAS E TELEMETRIA/OPERADORES
             var pnlGestao = CriarSecaoGestaoEAuditoria();
             pnlPrincipal.Controls.Add(pnlGestao, 0, 2);
 
@@ -95,6 +121,8 @@ namespace GS_TermoAtiva_C_.Views
 
             CarregarTabelaPontos();
             CarregarTabelaOcorrencias();
+            CarregarTabelaOperadores();
+            CarregarCamposClimaAtual();
         }
 
         private System.Windows.Forms.Panel CriarSecaoCadastroViaCep()
@@ -116,7 +144,7 @@ namespace GS_TermoAtiva_C_.Views
             layoutCard.RowStyles.Add(new RowStyle(SizeType.Absolute, 26f)); // Título da seção + feedback ViaCEP
             layoutCard.RowStyles.Add(new RowStyle(SizeType.Absolute, 68f)); // Linha 1: Nome, Categoria, CEP, Botão Buscar CEP
             layoutCard.RowStyles.Add(new RowStyle(SizeType.Absolute, 68f)); // Linha 2: Logradouro, Número, Bairro, Cidade, UF
-            layoutCard.RowStyles.Add(new RowStyle(SizeType.Percent, 100f)); // Linha 3: Disponibilidade + Botão Cadastrar
+            layoutCard.RowStyles.Add(new RowStyle(SizeType.Percent, 100f)); // Linha 3: Disponibilidade + Botões Cadastrar/Salvar
 
             // Barra de título da seção
             var pnlTopoSecao = new TableLayoutPanel
@@ -129,7 +157,7 @@ namespace GS_TermoAtiva_C_.Views
             pnlTopoSecao.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55f));
             pnlTopoSecao.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45f));
 
-            var lblSecao = new Label
+            _lblSecaoCadastro = new Label
             {
                 Text = "CADASTRAR NOVO PONTO DE APOIO (INTEGRAÇÃO AUTOMÁTICA VIACEP)",
                 Font = Tema.FonteTag,
@@ -147,7 +175,7 @@ namespace GS_TermoAtiva_C_.Views
                 TextAlign = ContentAlignment.MiddleRight
             };
 
-            pnlTopoSecao.Controls.Add(lblSecao, 0, 0);
+            pnlTopoSecao.Controls.Add(_lblSecaoCadastro, 0, 0);
             pnlTopoSecao.Controls.Add(_lblStatusCep, 1, 0);
 
             // LINHA 1 DE CAMPOS: Nome do Local, Categoria, CEP e Botão Buscar CEP
@@ -296,7 +324,7 @@ namespace GS_TermoAtiva_C_.Views
             linha2.Controls.Add(_txtCidade, 3, 1);
             linha2.Controls.Add(_txtUf, 4, 1);
 
-            // LINHA 3: Status Inicial + Nota de Distância Automática + Botão Cadastrar
+            // LINHA 3: Status Inicial + Nota de Distância Automática + Botões Cadastrar / Cancelar Edição
             var linha3 = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Fill,
@@ -315,22 +343,34 @@ namespace GS_TermoAtiva_C_.Views
 
             var lblNotaDistancia = new Label
             {
-                Text = "Nota: A distância até o totem é calculada automaticamente pelo sistema com base no CEP/endereço.",
+                Text = "Nota: Distância e coordenadas WGS-84 são calculadas automaticamente pelo CEP/endereço.",
                 Font = Tema.FontePequena,
                 ForeColor = Tema.TextoSuave,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            var btnCadastrar = Tema.CriarBotaoReaLTaiizor("Cadastrar Recurso no Totem", Tema.VerdeSucesso, 40, 8);
-            btnCadastrar.Dock = DockStyle.Right;
-            btnCadastrar.Width = 280;
-            btnCadastrar.Font = Tema.FonteGeralDestaque;
-            btnCadastrar.Click += (s, e) => ExecutarCadastroPonto();
+            _btnCancelarEdicao = new System.Windows.Forms.Button
+            {
+                Text = "Cancelar Edição",
+                Dock = DockStyle.Right,
+                Width = 160,
+                Visible = false
+            };
+            Tema.EstilizarBotaoSecundario(_btnCancelarEdicao, 40);
+            _btnCancelarEdicao.Font = Tema.FontePequenaBold;
+            _btnCancelarEdicao.Click += (s, e) => LimparFormularioPonto();
+
+            _btnCadastrarPonto = Tema.CriarBotaoReaLTaiizor("Cadastrar Recurso no Totem", Tema.VerdeSucesso, 40, 8);
+            _btnCadastrarPonto.Dock = DockStyle.Right;
+            _btnCadastrarPonto.Width = 280;
+            _btnCadastrarPonto.Font = Tema.FonteGeralDestaque;
+            _btnCadastrarPonto.Click += (s, e) => ExecutarCadastroOuEdicaoPonto();
 
             linha3.Controls.Add(lblNotaDistancia);
             linha3.Controls.Add(_chkDisponivel);
-            linha3.Controls.Add(btnCadastrar);
+            linha3.Controls.Add(_btnCancelarEdicao);
+            linha3.Controls.Add(_btnCadastrarPonto);
 
             layoutCard.Controls.Add(pnlTopoSecao, 0, 0);
             layoutCard.Controls.Add(linha1, 0, 1);
@@ -445,8 +485,8 @@ namespace GS_TermoAtiva_C_.Views
                 Padding = new Point(18, 8)
             };
 
-            // ABA 1: PONTOS DE RECURSO
-            var tabPontos = new TabPage("Gerenciar Pontos de Apoio Cadastrados")
+            // ABA 1: PONTOS DE RECURSO (pontos_apoio.json)
+            var tabPontos = new TabPage("1. Pontos de Apoio (pontos_apoio.json)")
             {
                 BackColor = Tema.FundoCard,
                 Padding = new Padding(10)
@@ -456,41 +496,65 @@ namespace GS_TermoAtiva_C_.Views
             Tema.EstilizarGrade(_gridPontos);
             ConfigurarColunasGradePontos();
 
-            var pnlAcoesPontos = new System.Windows.Forms.Panel
+            var pnlAcoesPontos = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 54,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
                 Padding = new Padding(0, 8, 0, 0)
             };
 
             var btnAlternarStatus = Tema.CriarBotaoReaLTaiizor(
-                "Alternar Disponibilidade (Ativar / Interditar Selecionado)",
+                "Alternar Status (Ativar / Interditar)",
                 Tema.AzulPrimario,
                 44,
                 8);
-            btnAlternarStatus.Dock = DockStyle.Left;
-            btnAlternarStatus.Width = 460;
+            btnAlternarStatus.Width = 340;
             btnAlternarStatus.Font = Tema.FonteGeralDestaque;
+            btnAlternarStatus.Margin = new Padding(0, 0, 10, 0);
             btnAlternarStatus.Click += (s, e) => AlternarStatusPontoSelecionado();
+
+            var btnEditarPonto = new System.Windows.Forms.Button
+            {
+                Text = "Carregar Selecionado p/ Edição",
+                Width = 260,
+                Margin = new Padding(0, 0, 10, 0)
+            };
+            Tema.EstilizarBotaoSecundario(btnEditarPonto, 44);
+            btnEditarPonto.Font = Tema.FontePequenaBold;
+            btnEditarPonto.Click += (s, e) => CarregarPontoSelecionadoParaEdicao();
+
+            var btnExcluirPonto = new System.Windows.Forms.Button
+            {
+                Text = "Excluir Ponto",
+                Width = 150,
+                Margin = new Padding(0, 0, 10, 0)
+            };
+            Tema.EstilizarBotaoSecundario(btnExcluirPonto, 44);
+            btnExcluirPonto.Font = Tema.FontePequenaBold;
+            btnExcluirPonto.ForeColor = Tema.VermelhoAlerta;
+            btnExcluirPonto.Click += (s, e) => ExcluirPontoSelecionado();
 
             var btnAtualizarPontos = new System.Windows.Forms.Button
             {
                 Text = "Recarregar Tabela",
-                Dock = DockStyle.Right,
-                Width = 180
+                Width = 170
             };
             Tema.EstilizarBotaoSecundario(btnAtualizarPontos, 44);
             btnAtualizarPontos.Font = Tema.FontePequenaBold;
             btnAtualizarPontos.Click += (s, e) => CarregarTabelaPontos();
 
             pnlAcoesPontos.Controls.Add(btnAlternarStatus);
+            pnlAcoesPontos.Controls.Add(btnEditarPonto);
+            pnlAcoesPontos.Controls.Add(btnExcluirPonto);
             pnlAcoesPontos.Controls.Add(btnAtualizarPontos);
 
             tabPontos.Controls.Add(_gridPontos);
             tabPontos.Controls.Add(pnlAcoesPontos);
 
-            // ABA 2: OCORRÊNCIAS REPORTADAS POR MUNÍCIPES
-            var tabOcorrencias = new TabPage("Auditoria de Ocorrências e Relatos dos Cidadãos")
+            // ABA 2: OCORRÊNCIAS REPORTADAS POR MUNÍCIPES (ocorrencias.json)
+            var tabOcorrencias = new TabPage("2. Ocorrências Cidadãs (ocorrencias.json)")
             {
                 BackColor = Tema.FundoCard,
                 Padding = new Padding(10)
@@ -500,32 +564,288 @@ namespace GS_TermoAtiva_C_.Views
             Tema.EstilizarGrade(_gridOcorrencias);
             ConfigurarColunasGradeOcorrencias();
 
-            var pnlAcoesOcorrencias = new System.Windows.Forms.Panel
+            var pnlAcoesOcorrencias = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 54,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
                 Padding = new Padding(0, 8, 0, 0)
             };
 
-            var btnAtualizarOcorrencias = Tema.CriarBotaoReaLTaiizor(
-                "Atualizar Lista de Ocorrências",
-                Tema.LaranjaAviso,
+            var btnAlternarOcorrencia = Tema.CriarBotaoReaLTaiizor(
+                "Alternar Situação (Atendido / Pendente)",
+                Tema.VerdeSucesso,
                 44,
                 8);
-            btnAtualizarOcorrencias.Dock = DockStyle.Left;
-            btnAtualizarOcorrencias.Width = 320;
-            btnAtualizarOcorrencias.Font = Tema.FonteGeralDestaque;
+            btnAlternarOcorrencia.Width = 360;
+            btnAlternarOcorrencia.Font = Tema.FonteGeralDestaque;
+            btnAlternarOcorrencia.Margin = new Padding(0, 0, 10, 0);
+            btnAlternarOcorrencia.Click += (s, e) => AlternarSituacaoOcorrenciaSelecionada();
+
+            var btnExcluirOcorrencia = new System.Windows.Forms.Button
+            {
+                Text = "Excluir Ocorrência",
+                Width = 180,
+                Margin = new Padding(0, 0, 10, 0)
+            };
+            Tema.EstilizarBotaoSecundario(btnExcluirOcorrencia, 44);
+            btnExcluirOcorrencia.Font = Tema.FontePequenaBold;
+            btnExcluirOcorrencia.ForeColor = Tema.VermelhoAlerta;
+            btnExcluirOcorrencia.Click += (s, e) => ExcluirOcorrenciaSelecionada();
+
+            var btnAtualizarOcorrencias = new System.Windows.Forms.Button
+            {
+                Text = "Recarregar Lista",
+                Width = 170
+            };
+            Tema.EstilizarBotaoSecundario(btnAtualizarOcorrencias, 44);
+            btnAtualizarOcorrencias.Font = Tema.FontePequenaBold;
             btnAtualizarOcorrencias.Click += (s, e) => CarregarTabelaOcorrencias();
 
+            pnlAcoesOcorrencias.Controls.Add(btnAlternarOcorrencia);
+            pnlAcoesOcorrencias.Controls.Add(btnExcluirOcorrencia);
             pnlAcoesOcorrencias.Controls.Add(btnAtualizarOcorrencias);
 
             tabOcorrencias.Controls.Add(_gridOcorrencias);
             tabOcorrencias.Controls.Add(pnlAcoesOcorrencias);
 
+            // ABA 3: TELEMETRIA CLIMÁTICA & OPERADORES (alerta_climatico.json + operadores.json)
+            var tabSistema = CriarAbaTelemetriaEOperadores();
+
             tabControl.TabPages.Add(tabPontos);
             tabControl.TabPages.Add(tabOcorrencias);
+            tabControl.TabPages.Add(tabSistema);
 
             pnl.Controls.Add(tabControl);
+            return pnl;
+        }
+
+        private TabPage CriarAbaTelemetriaEOperadores()
+        {
+            var tab = new TabPage("3. Clima & Operadores (alerta_climatico.json / operadores.json)")
+            {
+                BackColor = Tema.FundoCard,
+                Padding = new Padding(10)
+            };
+
+            var split = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f)); // Telemetria Climática
+            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f)); // Operadores / Logins
+
+            // PAINEL ESQUERDO: Telemetria Climática Persistida (Data/alerta_climatico.json)
+            var cardClima = new KioskCardPanel(Tema.LaranjaAviso)
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(18, 14, 18, 14),
+                Margin = new Padding(0, 0, 10, 0)
+            };
+
+            var layoutClima = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 6
+            };
+            layoutClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            layoutClima.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Absolute, 26f)); // Título
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f)); // Temp + Umidade
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f)); // Bairro + Camada Padrão
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f)); // Resumo índice calculado
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f)); // Botões Salvar / Sincronizar OpenWeather
+            layoutClima.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            var lblTituloClima = new Label
+            {
+                Text = "TELEMETRIA CLIMÁTICA (Data/alerta_climatico.json)",
+                Font = Tema.FonteTag,
+                ForeColor = Tema.LaranjaAviso,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            layoutClima.Controls.Add(lblTituloClima, 0, 0);
+            layoutClima.SetColumnSpan(lblTituloClima, 2);
+
+            _txtTempClima = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 12f), BorderStyle = BorderStyle.FixedSingle };
+            _txtUmidadeClima = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 12f), BorderStyle = BorderStyle.FixedSingle };
+            _txtBairroClima = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 12f), BorderStyle = BorderStyle.FixedSingle };
+
+            _cboCamadaPadrao = new ComboBox
+            {
+                Dock = DockStyle.Bottom,
+                Font = new Font("Segoe UI", 11f),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            foreach (var c in OpenWeatherMapService.CamadasDisponiveis)
+            {
+                _cboCamadaPadrao.Items.Add(c.Codigo);
+            }
+            _cboCamadaPadrao.SelectedIndex = 0;
+
+            layoutClima.Controls.Add(EmpacotarCampo("Temperatura Atual (°C):", _txtTempClima), 0, 1);
+            layoutClima.Controls.Add(EmpacotarCampo("Umidade Relativa (%):", _txtUmidadeClima), 1, 1);
+            layoutClima.Controls.Add(EmpacotarCampo("Bairro de Referência:", _txtBairroClima), 0, 2);
+            layoutClima.Controls.Add(EmpacotarCampo("Camada Padrão Weather Maps:", _cboCamadaPadrao), 1, 2);
+
+            _lblResumoClimaSalvo = new Label
+            {
+                Text = "Sensação Térmica (Rothfusz/NOAA): --",
+                Font = Tema.FontePequenaBold,
+                ForeColor = Tema.TextoPrincipal,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            layoutClima.Controls.Add(_lblResumoClimaSalvo, 0, 3);
+            layoutClima.SetColumnSpan(_lblResumoClimaSalvo, 2);
+
+            var btnSalvarClima = Tema.CriarBotaoReaLTaiizor("Salvar Telemetria no JSON", Tema.LaranjaAviso, 40, 8);
+            btnSalvarClima.Dock = DockStyle.Fill;
+            btnSalvarClima.Font = Tema.FontePequenaBold;
+            btnSalvarClima.Margin = new Padding(0, 2, 6, 2);
+            btnSalvarClima.Click += (s, e) => SalvarTelemetriaClimaticaManual();
+
+            var btnSyncOpenWeather = new System.Windows.Forms.Button
+            {
+                Text = "Sincronizar OpenWeather",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(6, 2, 0, 2)
+            };
+            Tema.EstilizarBotaoSecundario(btnSyncOpenWeather, 40);
+            btnSyncOpenWeather.Font = Tema.FontePequenaBold;
+            btnSyncOpenWeather.Click += async (s, e) => await SincronizarClimaOpenWeatherAsync(btnSyncOpenWeather);
+
+            layoutClima.Controls.Add(btnSalvarClima, 0, 4);
+            layoutClima.Controls.Add(btnSyncOpenWeather, 1, 4);
+
+            cardClima.Controls.Add(layoutClima);
+
+            // PAINEL DIREITO: Operadores Municipais (Data/operadores.json)
+            var cardOperadores = new KioskCardPanel(Tema.AzulPrimario)
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(18, 14, 18, 14),
+                Margin = new Padding(0)
+            };
+
+            var layoutOp = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4
+            };
+            layoutOp.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f)); // Título
+            layoutOp.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f)); // Linha cadastro rápido de operador
+            layoutOp.RowStyles.Add(new RowStyle(SizeType.Percent, 100f)); // Grade de operadores
+            layoutOp.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f)); // Ações de operadores
+
+            var lblTituloOp = new Label
+            {
+                Text = "CREDENCIAIS DE OPERADORES MUNICIPAIS (Data/operadores.json)",
+                Font = Tema.FonteTag,
+                ForeColor = Tema.AzulPrimario,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            var linhaNovoOp = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 5,
+                RowCount = 1,
+                Margin = new Padding(0, 2, 0, 4)
+            };
+            linhaNovoOp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+            linhaNovoOp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            linhaNovoOp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
+            linhaNovoOp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+            linhaNovoOp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14f));
+
+            _txtNovoOpUsuario = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 11f), PlaceholderText = "usuário" };
+            _txtNovoOpSenha = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 11f), PlaceholderText = "senha" };
+            _txtNovoOpNome = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 11f), PlaceholderText = "Nome Completo" };
+            _txtNovoOpCargo = new TextBox { Dock = DockStyle.Bottom, Font = new Font("Segoe UI", 11f), PlaceholderText = "Cargo/Setor" };
+
+            var btnAddOp = new System.Windows.Forms.Button
+            {
+                Text = "Adicionar",
+                Dock = DockStyle.Bottom,
+                Height = 30
+            };
+            Tema.EstilizarBotaoSecundario(btnAddOp, 30);
+            btnAddOp.Font = Tema.FontePequenaBold;
+            btnAddOp.BackColor = Tema.CorFundoBebedouro;
+            btnAddOp.ForeColor = Tema.CorTextoBebedouro;
+            btnAddOp.Click += (s, e) => ExecutarCadastroOperador();
+
+            linhaNovoOp.Controls.Add(EmpacotarCampo("Usuário:", _txtNovoOpUsuario), 0, 0);
+            linhaNovoOp.Controls.Add(EmpacotarCampo("Senha:", _txtNovoOpSenha), 1, 0);
+            linhaNovoOp.Controls.Add(EmpacotarCampo("Nome:", _txtNovoOpNome), 2, 0);
+            linhaNovoOp.Controls.Add(EmpacotarCampo("Cargo:", _txtNovoOpCargo), 3, 0);
+            linhaNovoOp.Controls.Add(btnAddOp, 4, 0);
+
+            _gridOperadores = new DataGridView { Dock = DockStyle.Fill };
+            Tema.EstilizarGrade(_gridOperadores);
+            _gridOperadores.RowTemplate.Height = 40;
+            _gridOperadores.ColumnHeadersHeight = 40;
+            ConfigurarColunasGradeOperadores();
+
+            var pnlAcoesOp = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(0, 4, 0, 0)
+            };
+
+            var btnAlternarOp = new System.Windows.Forms.Button
+            {
+                Text = "Ativar / Inativar Operador Selecionado",
+                Width = 280
+            };
+            Tema.EstilizarBotaoSecundario(btnAlternarOp, 38);
+            btnAlternarOp.Font = Tema.FontePequenaBold;
+            btnAlternarOp.Click += (s, e) => AlternarStatusOperadorSelecionado();
+
+            pnlAcoesOp.Controls.Add(btnAlternarOp);
+
+            layoutOp.Controls.Add(lblTituloOp, 0, 0);
+            layoutOp.Controls.Add(linhaNovoOp, 0, 1);
+            layoutOp.Controls.Add(_gridOperadores, 0, 2);
+            layoutOp.Controls.Add(pnlAcoesOp, 0, 3);
+
+            cardOperadores.Controls.Add(layoutOp);
+
+            split.Controls.Add(cardClima, 0, 0);
+            split.Controls.Add(cardOperadores, 1, 0);
+
+            tab.Controls.Add(split);
+            return tab;
+        }
+
+        private static System.Windows.Forms.Panel EmpacotarCampo(string rotulo, Control controle)
+        {
+            var pnl = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 8, 2)
+            };
+            var lbl = new Label
+            {
+                Text = rotulo,
+                Font = Tema.FontePequenaBold,
+                ForeColor = Tema.TextoPrincipal,
+                Dock = DockStyle.Top,
+                Height = 20
+            };
+            pnl.Controls.Add(controle);
+            pnl.Controls.Add(lbl);
             return pnl;
         }
 
@@ -589,6 +909,7 @@ namespace GS_TermoAtiva_C_.Views
         {
             _gridOcorrencias.Columns.Clear();
 
+            _gridOcorrencias.Columns.Add(new DataGridViewTextBoxColumn { Name = "Id", HeaderText = "ID", Visible = false });
             _gridOcorrencias.Columns.Add(new DataGridViewTextBoxColumn { Name = "DataHora", HeaderText = "DATA / HORA", FillWeight = 15 });
             _gridOcorrencias.Columns.Add(new DataGridViewTextBoxColumn { Name = "PontoApoio", HeaderText = "LOCAL AFETADO", FillWeight = 24 });
             _gridOcorrencias.Columns.Add(new DataGridViewTextBoxColumn { Name = "TipoProblema", HeaderText = "PROBLEMA", FillWeight = 16 });
@@ -599,12 +920,33 @@ namespace GS_TermoAtiva_C_.Views
             _gridOcorrencias.CellFormatting += (s, e) =>
             {
                 if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
-                if (_gridOcorrencias.Columns[e.ColumnIndex].Name == "TipoProblema" && e.Value != null)
+                string colName = _gridOcorrencias.Columns[e.ColumnIndex].Name;
+                if (colName == "TipoProblema" && e.Value != null)
                 {
                     e.CellStyle!.ForeColor = Tema.VermelhoAlerta;
                     e.CellStyle.Font = Tema.FontePequenaBold;
                 }
+                else if (colName == "Status" && e.Value != null)
+                {
+                    string status = e.Value.ToString() ?? string.Empty;
+                    e.CellStyle!.ForeColor = status.Contains("ATENDIDO", StringComparison.OrdinalIgnoreCase)
+                        ? Tema.VerdeSucesso
+                        : Tema.LaranjaAviso;
+                    e.CellStyle.Font = Tema.FontePequenaBold;
+                }
             };
+        }
+
+        private void ConfigurarColunasGradeOperadores()
+        {
+            _gridOperadores.Columns.Clear();
+
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "Id", HeaderText = "ID", FillWeight = 8 });
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "Usuario", HeaderText = "USUÁRIO", FillWeight = 18 });
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "Nome", HeaderText = "NOME DO OPERADOR", FillWeight = 30 });
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "Cargo", HeaderText = "CARGO", FillWeight = 22 });
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "UltimoAcesso", HeaderText = "ÚLTIMO ACESSO", FillWeight = 18 });
+            _gridOperadores.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "STATUS", FillWeight = 12 });
         }
 
         private void CarregarTabelaPontos()
@@ -637,6 +979,7 @@ namespace GS_TermoAtiva_C_.Views
             {
                 string status = o.Resolvido ? "ATENDIDO" : "PENDENTE";
                 _gridOcorrencias.Rows.Add(
+                    o.Id,
                     o.DataHora.ToString("dd/MM/yyyy HH:mm"),
                     o.NomePontoApoio,
                     o.TipoProblema,
@@ -647,7 +990,34 @@ namespace GS_TermoAtiva_C_.Views
             }
         }
 
-        private void ExecutarCadastroPonto()
+        private void CarregarTabelaOperadores()
+        {
+            var operadores = _repository.ObterTodosOperadores();
+            _gridOperadores.Rows.Clear();
+
+            foreach (var op in operadores)
+            {
+                string ultimo = op.UltimoAcesso.HasValue ? op.UltimoAcesso.Value.ToString("dd/MM HH:mm") : "Nunca";
+                string status = op.Ativo ? "ATIVO" : "INATIVO";
+                _gridOperadores.Rows.Add(op.Id, op.Usuario, op.NomeCompleto, op.Cargo, ultimo, status);
+            }
+        }
+
+        private void CarregarCamposClimaAtual()
+        {
+            var alerta = _repository.ObterAlertaAtual();
+            _txtTempClima.Text = alerta.TemperaturaAtual.ToString("F1", CultureInfo.InvariantCulture);
+            _txtUmidadeClima.Text = alerta.UmidadeRelativa.ToString(CultureInfo.InvariantCulture);
+            _txtBairroClima.Text = alerta.BairroReferencia;
+
+            int idxCamada = _cboCamadaPadrao.Items.IndexOf(alerta.CamadaMapaPadrao);
+            _cboCamadaPadrao.SelectedIndex = idxCamada >= 0 ? idxCamada : 0;
+
+            _lblResumoClimaSalvo.Text =
+                $"Ativo no JSON: {alerta.TemperaturaAtual:F1}°C | Sensação: {alerta.SensacaoTermica:F1}°C ({alerta.ClassificarNivelRisco()}) | Atualizado às {alerta.UltimaAtualizacao:HH:mm}";
+        }
+
+        private void ExecutarCadastroOuEdicaoPonto()
         {
             try
             {
@@ -694,50 +1064,120 @@ namespace GS_TermoAtiva_C_.Views
 
                 string cepFormatado = $"{ExtrairDigitosCep(cep)[..5]}-{ExtrairDigitosCep(cep)[5..]}";
 
-                var novoPonto = new PontoApoio(
-                    0,
-                    nome,
-                    tipo,
-                    cepFormatado,
-                    logradouro,
-                    numero,
-                    bairro,
-                    cidade,
-                    uf,
-                    _chkDisponivel.Checked);
+                if (_pontoEmEdicaoId.HasValue)
+                {
+                    var pontoAtualizado = new PontoApoio(
+                        _pontoEmEdicaoId.Value,
+                        nome,
+                        tipo,
+                        cepFormatado,
+                        logradouro,
+                        numero,
+                        bairro,
+                        cidade,
+                        uf,
+                        _chkDisponivel.Checked);
 
-                var pontoSalvo = _repository.CadastrarPontoApoio(novoPonto);
+                    _repository.AtualizarPontoApoio(pontoAtualizado);
+                    MessageBox.Show(
+                        $"Ponto #{_pontoEmEdicaoId.Value} atualizado com sucesso em Data/pontos_apoio.json!",
+                        "Edição Concluída",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    var novoPonto = new PontoApoio(
+                        0,
+                        nome,
+                        tipo,
+                        cepFormatado,
+                        logradouro,
+                        numero,
+                        bairro,
+                        cidade,
+                        uf,
+                        _chkDisponivel.Checked);
 
-                MessageBox.Show(
-                    $"Ponto de apoio cadastrado com sucesso!\n\n" +
-                    $"Local: {pontoSalvo.Nome}\n" +
-                    $"Endereço: {pontoSalvo.Endereco}\n" +
-                    $"Distância Calculada até o Totem: {pontoSalvo.DistanciaMetros} metros",
-                    "Cadastro Concluído",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                    var pontoSalvo = _repository.CadastrarPontoApoio(novoPonto);
+                    MessageBox.Show(
+                        $"Ponto de apoio cadastrado com sucesso!\n\n" +
+                        $"Local: {pontoSalvo.Nome}\n" +
+                        $"Endereço: {pontoSalvo.Endereco}\n" +
+                        $"Distância Calculada até o Totem: {pontoSalvo.DistanciaMetros} metros",
+                        "Cadastro Concluído",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
 
-                // Limpa os campos após o cadastro
-                _txtNome.Clear();
-                _txtCep.Clear();
-                _txtLogradouro.Clear();
-                _txtNumero.Clear();
-                _txtBairro.Clear();
-                _txtCidade.Clear();
-                _txtUf.Clear();
-                _ultimoCepConsultado = string.Empty;
-                _chkDisponivel.Checked = true;
-                _cboTipo.SelectedIndex = 0;
-                _lblStatusCep.Text = "Informe o CEP (8 dígitos) para preenchimento automático do logradouro e bairro.";
-                _lblStatusCep.ForeColor = Tema.TextoSecundario;
-
+                LimparFormularioPonto();
                 CarregarTabelaPontos();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao cadastrar ponto de apoio: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Erro ao salvar ponto de apoio: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void CarregarPontoSelecionadoParaEdicao()
+        {
+            if (_gridPontos.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecione um ponto na tabela para editar seus dados.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int id = Convert.ToInt32(_gridPontos.SelectedRows[0].Cells["Id"].Value);
+            var ponto = _repository.ObterPontoPorId(id);
+            if (ponto == null) return;
+
+            _pontoEmEdicaoId = ponto.Id;
+            _txtNome.Text = ponto.Nome;
+            _cboTipo.SelectedIndex = ponto.Tipo switch
+            {
+                TipoPontoApoio.BebedouroPublico => 0,
+                TipoPontoApoio.AreaSombraDescanso => 1,
+                TipoPontoApoio.PostoSaudeClimatizado => 2,
+                _ => 0
+            };
+            _txtCep.Text = ponto.CEP;
+            _ultimoCepConsultado = ExtrairDigitosCep(ponto.CEP);
+            _txtLogradouro.Text = ponto.Logradouro;
+            _txtNumero.Text = ponto.Numero;
+            _txtBairro.Text = ponto.Bairro;
+            _txtCidade.Text = ponto.Cidade;
+            _txtUf.Text = ponto.UF;
+            _chkDisponivel.Checked = ponto.Disponivel;
+
+            _lblSecaoCadastro.Text = $"EDITANDO PONTO #{ponto.Id}: {ponto.Nome.ToUpperInvariant()}";
+            _lblSecaoCadastro.ForeColor = Tema.AzulPrimario;
+            _btnCadastrarPonto.ButtonText = $"Salvar Alterações (#{ponto.Id})";
+            _btnCadastrarPonto.Text = $"Salvar Alterações (#{ponto.Id})";
+            _btnCancelarEdicao.Visible = true;
+            _txtNome.Focus();
+        }
+
+        private void LimparFormularioPonto()
+        {
+            _pontoEmEdicaoId = null;
+            _txtNome.Clear();
+            _txtCep.Clear();
+            _txtLogradouro.Clear();
+            _txtNumero.Clear();
+            _txtBairro.Clear();
+            _txtCidade.Clear();
+            _txtUf.Clear();
+            _ultimoCepConsultado = string.Empty;
+            _chkDisponivel.Checked = true;
+            _cboTipo.SelectedIndex = 0;
+
+            _lblSecaoCadastro.Text = "CADASTRAR NOVO PONTO DE APOIO (INTEGRAÇÃO AUTOMÁTICA VIACEP)";
+            _lblSecaoCadastro.ForeColor = Tema.VerdeSucesso;
+            _btnCadastrarPonto.ButtonText = "Cadastrar Recurso no Totem";
+            _btnCadastrarPonto.Text = "Cadastrar Recurso no Totem";
+            _btnCancelarEdicao.Visible = false;
+            _lblStatusCep.Text = "Informe o CEP (8 dígitos) para preenchimento automático do logradouro e bairro.";
+            _lblStatusCep.ForeColor = Tema.TextoSecundario;
         }
 
         private void AlternarStatusPontoSelecionado()
@@ -765,6 +1205,193 @@ namespace GS_TermoAtiva_C_.Views
             catch (Exception ex)
             {
                 MessageBox.Show($"Erro ao alternar status do ponto: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ExcluirPontoSelecionado()
+        {
+            if (_gridPontos.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecione um ponto na tabela para excluir.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int id = Convert.ToInt32(_gridPontos.SelectedRows[0].Cells["Id"].Value);
+            string nome = _gridPontos.SelectedRows[0].Cells["Nome"].Value?.ToString() ?? $"#{id}";
+
+            var confirm = MessageBox.Show(
+                $"Deseja realmente excluir o ponto '{nome}' (ID #{id}) de Data/pontos_apoio.json?",
+                "Confirmar Exclusão",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (confirm != DialogResult.Yes) return;
+
+            if (_repository.RemoverPontoApoio(id))
+            {
+                if (_pontoEmEdicaoId == id) LimparFormularioPonto();
+                CarregarTabelaPontos();
+            }
+        }
+
+        private void AlternarSituacaoOcorrenciaSelecionada()
+        {
+            if (_gridOcorrencias.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecione uma ocorrência na tabela para alterar sua situação.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var linha = _gridOcorrencias.SelectedRows[0];
+            if (linha.Cells["Id"].Value is not Guid id) return;
+
+            string statusAtual = linha.Cells["Status"].Value?.ToString() ?? string.Empty;
+            bool novoResolvido = !statusAtual.Contains("ATENDIDO", StringComparison.OrdinalIgnoreCase);
+
+            if (_repository.AlternarStatusOcorrencia(id, novoResolvido))
+            {
+                CarregarTabelaOcorrencias();
+            }
+        }
+
+        private void ExcluirOcorrenciaSelecionada()
+        {
+            if (_gridOcorrencias.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecione uma ocorrência na tabela para excluir.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var linha = _gridOcorrencias.SelectedRows[0];
+            if (linha.Cells["Id"].Value is not Guid id) return;
+
+            var confirm = MessageBox.Show(
+                "Deseja realmente remover este relato do arquivo Data/ocorrencias.json?",
+                "Confirmar Exclusão",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (confirm == DialogResult.Yes && _repository.RemoverOcorrencia(id))
+            {
+                CarregarTabelaOcorrencias();
+            }
+        }
+
+        private void SalvarTelemetriaClimaticaManual()
+        {
+            string tempTexto = _txtTempClima.Text.Trim().Replace(',', '.');
+            if (!double.TryParse(tempTexto, NumberStyles.Float, CultureInfo.InvariantCulture, out double temp) || temp is < -10 or > 60)
+            {
+                MessageBox.Show("Informe uma temperatura válida entre -10°C e 60°C.", "Temperatura Inválida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!int.TryParse(_txtUmidadeClima.Text.Trim(), out int umidade) || umidade is < 0 or > 100)
+            {
+                MessageBox.Show("Informe uma umidade relativa válida entre 0% e 100%.", "Umidade Inválida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string bairro = _txtBairroClima.Text.Trim();
+            string camada = _cboCamadaPadrao.SelectedItem?.ToString() ?? "temp_new";
+
+            var salvo = _repository.AtualizarAlertaClimatico(temp, umidade, null, bairro, camada);
+            CarregarCamposClimaAtual();
+
+            MessageBox.Show(
+                $"Telemetria persistida em Data/alerta_climatico.json!\n\n" +
+                $"Temperatura: {salvo.TemperaturaAtual:F1}°C\n" +
+                $"Umidade: {salvo.UmidadeRelativa}%\n" +
+                $"Sensação Térmica Calculada (NOAA): {salvo.SensacaoTermica:F1}°C\n" +
+                $"Classificação: {salvo.ClassificarNivelRisco()}",
+                "Clima Atualizado",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private async Task SincronizarClimaOpenWeatherAsync(System.Windows.Forms.Button btn)
+        {
+            try
+            {
+                btn.Enabled = false;
+                btn.Text = "Sincronizando...";
+
+                var res = await _openWeatherService.ConsultarClimaAtualAsync();
+                if (!res.Sucesso)
+                {
+                    MessageBox.Show(res.Mensagem, "Aviso OpenWeather", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string camada = _cboCamadaPadrao.SelectedItem?.ToString() ?? "temp_new";
+                _repository.AtualizarAlertaClimatico(res.TemperaturaC, res.UmidadePct, res.SensacaoC, _txtBairroClima.Text, camada);
+                CarregarCamposClimaAtual();
+
+                MessageBox.Show(
+                    $"Telemetria sincronizada com OpenWeather e salva em Data/alerta_climatico.json!\n\n" +
+                    $"Temperatura: {res.TemperaturaC:F1}°C | Umidade: {res.UmidadePct}% | Sensação: {res.SensacaoC:F1}°C",
+                    "Sincronização Concluída",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            finally
+            {
+                btn.Enabled = true;
+                btn.Text = "Sincronizar OpenWeather";
+            }
+        }
+
+        private void ExecutarCadastroOperador()
+        {
+            try
+            {
+                string usuario = _txtNovoOpUsuario.Text.Trim();
+                string senha = _txtNovoOpSenha.Text.Trim();
+                string nome = _txtNovoOpNome.Text.Trim();
+                string cargo = string.IsNullOrWhiteSpace(_txtNovoOpCargo.Text) ? "Operador Municipal" : _txtNovoOpCargo.Text.Trim();
+
+                if (string.IsNullOrWhiteSpace(usuario) || string.IsNullOrWhiteSpace(senha) || string.IsNullOrWhiteSpace(nome))
+                {
+                    MessageBox.Show("Preencha Usuário, Senha e Nome Completo para cadastrar um novo operador.", "Campos Obrigatórios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                _repository.CadastrarOperador(new OperadorMunicipal(0, usuario, senha, nome, cargo, true));
+                _txtNovoOpUsuario.Clear();
+                _txtNovoOpSenha.Clear();
+                _txtNovoOpNome.Clear();
+                _txtNovoOpCargo.Clear();
+
+                CarregarTabelaOperadores();
+                MessageBox.Show($"Operador '{usuario}' cadastrado e persistido em Data/operadores.json.", "Operador Cadastrado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void AlternarStatusOperadorSelecionado()
+        {
+            if (_gridOperadores.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecione um operador na tabela.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                var linha = _gridOperadores.SelectedRows[0];
+                int id = Convert.ToInt32(linha.Cells["Id"].Value);
+                string statusAtual = linha.Cells["Status"].Value?.ToString() ?? string.Empty;
+                bool novoAtivo = !string.Equals(statusAtual, "ATIVO", StringComparison.OrdinalIgnoreCase);
+
+                _repository.AlternarStatusOperador(id, novoAtivo);
+                CarregarTabelaOperadores();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Operação Não Permitida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

@@ -410,3 +410,6 @@ obj/
 # Cache e configuracoes locais do Visual Studio
 .vs/
 *.user
+# Variaveis de ambiente locais (chave da API OpenWeather)
+.env
+.env.local

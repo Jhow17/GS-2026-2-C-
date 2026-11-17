@@ -1,0 +1,20 @@
+[
+  {
+    "Id": 1,
+    "Usuario": "admin",
+    "Senha": "1234",
+    "NomeCompleto": "Coordenação de Zeladoria Urbana",
+    "Cargo": "Operador Chefe Municipal",
+    "Ativo": true,
+    "UltimoAcesso": "2026-11-16T18:30:00-03:00"
+  },
+  {
+    "Id": 2,
+    "Usuario": "zeladoria",
+    "Senha": "2026",
+    "NomeCompleto": "Equipe Técnica de Manutenção Hidráulica",
+    "Cargo": "Agente de Campo - Defesa Civil",
+    "Ativo": true,
+    "UltimoAcesso": null
+  }
+]

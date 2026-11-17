@@ -90,7 +90,7 @@ Tabela exibindo Nome do Local, Categoria, Endereço Completo, Distância Estimad
 
 Módulo 03 — Mapa de Refúgio e Recursos (MapaForm):
 
-Container de visualização geográfica com coordenadas de cobertura do totem, legenda cromática das categorias de refúgio e listagem georreferenciada dos pontos próximos (preparado para acoplamento do provedor GMap.NET).
+Renderização cartográfica interativa (projeção Web Mercator / WGS-84) integrada à API Weather Maps 1.0 da OpenWeather (`https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png?appid={API key}`), com seletor de camadas climáticas (`temp_new`, `precipitation_new`, `clouds_new`, `wind_new`, `pressure_new`), controles de zoom/arraste e pinos georreferenciados clicáveis carregados de `Data/pontos_apoio.json`.
 
 Módulo 04 — Informar Problema em Bebedouro (OcorrenciaForm):
 
@@ -102,9 +102,9 @@ Gravação resiliente imediata no arquivo JSON de ocorrências.
 
 2. Modo Administrador Restrito (Operador de Zeladoria)
 
-Autenticação Segura com Teclado Virtual Sob Demanda (AdminAuthForm):
+Autenticação Segura com Persistência JSON e Teclado Virtual Sob Demanda (AdminAuthForm):
 
-Modal com autenticação de dois fatores locais: Usuário / Identificador (admin) e Senha (1234);
+Modal com autenticação validada diretamente em `Data/operadores.json` (com registro automático de `UltimoAcesso`): Usuário `admin` (Senha `1234`) ou `zeladoria` (Senha `2026`);
 
 Teclado Virtual Sob Demanda: oculto por padrão (Visible = false) para privilegiar a limpeza visual, podendo ser exibido/ocultado a qualquer momento através do botão [ Teclado Virtual ].
 
@@ -112,11 +112,13 @@ Painel Administrativo e Gestão de Recursos (AdminPontosForm):
 
 Integração Assíncrona com API ViaCEP: ao digitar o CEP ou acionar [ Buscar CEP ], o sistema consome https://viacep.com.br/ws/{cep}/json/ via HttpClient e preenche automaticamente Logradouro/Rua, Bairro, Cidade e UF;
 
-Cálculo Automático de Distância: a distância até o totem é calculada dinamicamente pelo domínio com base no endereço/CEP, eliminando erros de digitação manual;
+Cálculo Automático de Distância e Coordenadas WGS-84: a distância até o totem e as coordenadas geográficas (`Latitude` e `Longitude`) são calculadas dinamicamente pelo domínio com base no CEP/endereço;
 
-Gestão Operacional de Disponibilidade: botão para alternar rapidamente o status de um ponto entre DISPONÍVEL e INTERDITADO;
+CRUD Completo de Pontos de Apoio (`Data/pontos_apoio.json`): cadastro, edição de pontos existentes, alternância rápida entre DISPONÍVEL e INTERDITADO e exclusão com confirmação;
 
-Auditoria de Ocorrências: aba dedicada com histórico em tempo real das notificações enviadas pela população, incluindo relator e descrição detalhada.
+Auditoria e Resolução de Ocorrências (`Data/ocorrencias.json`): histórico das notificações enviadas pela população, com botões para alternar situação entre PENDENTE e ATENDIDO ou excluir registros improcedentes;
+
+Gestão de Telemetria Climática (`Data/alerta_climatico.json`) e Operadores (`Data/operadores.json`): aba dedicada para atualizar temperatura/umidade (com cálculo automático do Índice de Calor NOAA ou sincronização com a OpenWeather) e cadastrar/ativar/inativar operadores municipais.
 
 Arquitetura Orientada a Objetos (POO)
 
@@ -124,31 +126,37 @@ O projeto adota uma arquitetura em duas camadas claras e desacopladas (Models e 
 
 GS_TermoAtiva_C_
 ├── Models/
-│   ├── PontoApoio.cs (Entidade com endereço decomposto CEP/Logradouro/Numero/Bairro/Cidade/UF e cálculo de distância)
-│   ├── AlertaClimatico.cs (Cálculo de risco térmico e catálogo de recomendações de saúde)
-│   ├── OcorrenciaMunicipe.cs (Entidade de zeladoria com suporte opcional a NomeMunicipe e DescricaoDetalhada)
-│   └── TotemRepository.cs (Persistência atômica JSON, seed offline e isolamento de I/O)
+│   ├── PontoApoio.cs (Entidade com endereço decomposto ViaCEP, coordenadas WGS-84 Latitude/Longitude e cálculo de distância)
+│   ├── AlertaClimatico.cs (Cálculo de Índice de Calor Rothfusz/NOAA, classificação de risco térmico e recomendações)
+│   ├── OcorrenciaMunicipe.cs (Entidade de zeladoria com suporte opcional a NomeMunicipe, DescricaoDetalhada e status Resolvido)
+│   ├── OperadorMunicipal.cs (Entidade de credenciais e controle de acesso de operadores persistida em JSON)
+│   ├── OpenWeatherMapService.cs (Consumo de tiles da Weather Maps 1.0 API da OpenWeather e projeção Web Mercator)
+│   └── TotemRepository.cs (Persistência atômica JSON dos 4 arquivos, seed offline e isolamento de I/O)
 └── Views/
     ├── Tema.cs (Design System: integração ReaLTaiizor, KioskCardPanel, KioskActionTile e cabeçalhos padronizados)
     ├── SplashForm.cs (Inicialização diagnóstica com HopeProgressBar)
     ├── MenuForm.cs (Dashboard público em grade 2x2 com telemetria climática)
     ├── AlertaForm.cs (Orientações de acolhimento térmico e hidratação)
     ├── PontosApoioForm.cs (Consulta pública com diferenciação cromática por categoria)
-    ├── MapaForm.cs (Visualização geográfica e legenda de recursos)
+    ├── MapaForm.cs (Mapa interativo com tiles da OpenWeather Weather Maps 1.0 API, zoom/pan e pinos clicáveis)
     ├── OcorrenciaForm.cs (Relato ágil de falhas com campos opcionais de cidadão e descrição)
-    ├── AdminAuthForm.cs (Modal de login Usuário/Senha com teclado virtual sob demanda)
-    └── AdminPontosForm.cs (Painel administrativo com integração ViaCEP e auditoria)
+    ├── AdminAuthForm.cs (Modal de login validado em JSON com teclado virtual sob demanda)
+    └── AdminPontosForm.cs (Painel administrativo com ViaCEP, CRUD de pontos, resolução de ocorrências, clima e operadores)
 
 
 Resiliência Offline e Persistência Local JSON
 
-O TermoAtiva utiliza o motor nativo System.Text.Json para operar mesmo sem conectividade externa:
+O TermoAtiva utiliza o motor nativo System.Text.Json para persistir todos os dados em arquivos JSON no próprio projeto:
 
-Data/pontos_apoio.json: Armazena os pontos de hidratação e refúgio com endereço estruturado.
+Data/pontos_apoio.json: Armazena os pontos de hidratação e refúgio com endereço estruturado e coordenadas geográficas (`Latitude` e `Longitude`).
 
-Data/ocorrencias.json: Armazena o registro de falhas reportadas pelos munícipes.
+Data/ocorrencias.json: Armazena o registro de falhas reportadas pelos munícipes e seu status de atendimento (`Resolvido`).
 
-Seed Inicial Automático: Caso os arquivos não existam no primeiro boot, o TotemRepository cria automaticamente a pasta Data/ e popula a base com 5 pontos de apoio realistas em São Paulo.
+Data/operadores.json: Armazena os logins, cargos, status ativo/inativo e data/hora do último acesso dos operadores municipais.
+
+Data/alerta_climatico.json: Armazena a telemetria climática atual do totem (`TemperaturaAtual`, `UmidadeRelativa`, `SensacaoTermica`), bairro de referência e a camada padrão do mapa OpenWeather (`CamadaMapaPadrao`).
+
+Seed Inicial Automático: Caso os arquivos não existam no primeiro boot, o TotemRepository cria automaticamente a pasta Data/ e popula a base inicial completa.
 
 Design System de Alto Contraste Solar (Tema.cs + ReaLTaiizor)
 
@@ -161,6 +169,7 @@ Interface Tipográfica Pura (Zero Emojis): Todos os elementos visuais utilizam h
 Estrutura de Pastas e Diretórios
 
 C:/Users/Jonathan Silva/FIAP/GS/C#/
+├── .env.example
 ├── .gitignore
 ├── integrantes.txt
 ├── README.md
@@ -170,12 +179,16 @@ C:/Users/Jonathan Silva/FIAP/GS/C#/
         ├── GS-TermoAtiva-C#.csproj
         ├── Program.cs
         ├── Data/
-        │   ├── pontos_apoio.json
-        │   └── ocorrencias.json
+        │   ├── alerta_climatico.json
+        │   ├── ocorrencias.json
+        │   ├── operadores.json
+        │   └── pontos_apoio.json
         ├── Models/
-        │   ├── PontoApoio.cs
         │   ├── AlertaClimatico.cs
         │   ├── OcorrenciaMunicipe.cs
+        │   ├── OpenWeatherMapService.cs
+        │   ├── OperadorMunicipal.cs
+        │   ├── PontoApoio.cs
         │   └── TotemRepository.cs
         └── Views/
             ├── Tema.cs

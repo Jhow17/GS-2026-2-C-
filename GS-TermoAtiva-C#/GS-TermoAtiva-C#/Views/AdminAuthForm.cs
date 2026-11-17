@@ -11,9 +11,6 @@ namespace GS_TermoAtiva_C_.Views
     /// </summary>
     public class AdminAuthForm : Form
     {
-        private const string UsuarioPadrao = "admin";
-        private const string SenhaPadrao = "1234";
-
         private readonly TotemRepository _repository;
         private TextBox _txtUsuario = null!;
         private TextBox _txtSenha = null!;
@@ -366,18 +363,18 @@ namespace GS_TermoAtiva_C_.Views
             string usuarioInformado = _txtUsuario.Text.Trim();
             string senhaInformada = _txtSenha.Text.Trim();
 
-            if (string.Equals(usuarioInformado, UsuarioPadrao, StringComparison.OrdinalIgnoreCase) &&
-                senhaInformada == SenhaPadrao)
+            var operadorAutenticado = _repository.AutenticarOperador(usuarioInformado, senhaInformada);
+            if (operadorAutenticado != null)
             {
                 this.Hide();
-                using var formAdmin = new AdminPontosForm(_repository);
+                using var formAdmin = new AdminPontosForm(_repository, operadorAutenticado);
                 formAdmin.ShowDialog(this.Owner);
                 this.Close();
             }
             else
             {
                 MessageBox.Show(
-                    "Credenciais inválidas. Verifique o Usuário e a Senha informados.\n(Credenciais de avaliação: Usuário 'admin' | Senha '1234')",
+                    "Credenciais inválidas ou operador inativo em Data/operadores.json.\n(Homologação: 'admin' / '1234' ou 'zeladoria' / '2026')",
                     "Acesso Negado",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning

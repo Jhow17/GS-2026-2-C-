@@ -1,255 +1,105 @@
-TermoAtiva - Totem Urbano de Refúgio Climático (CitizenTech)
+# TermoAtiva — Totem Urbano de Refúgio Climático (CitizenTech)
 
-Sumário
+O **TermoAtiva** é um sistema de autoatendimento em **Windows Forms (.NET 8)** projetado para operar em totens físicos instalados em praças, terminais de transporte e centros comerciais. A solução conecta a população a pontos gratuitos de hidratação, descanso sombreado e atendimento climatizado durante ondas de calor extremo.
 
-Sobre o Projeto e Problema Social
+---
 
-Público-Alvo e Personas Beneficiadas
+## 1. O Problema Escolhido
 
-Funcionalidades do Sistema
+O avanço das mudanças climáticas e as **ilhas de calor urbano** tornaram as ondas de calor extremo (com sensação térmica acima de 40 °C) um risco grave de saúde pública nas grandes cidades, causando desidratação aguda, exaustão térmica e insolação.
 
-Visão Pública (Munícipe)
+Embora existam alertas em smartphones, parte expressiva das pessoas mais expostas ao calor enfrenta **exclusão digital ou restrição de acesso na rua**: não possui pacote de dados móveis, não tem familiaridade com aplicativos ou trabalha sob o sol sem conseguir manusear o celular continuamente. Falta, no espaço público, um ponto físico de fácil leitura que informe o risco térmico atual, indique onde beber água ou descansar perto dali e permita avisar quando um bebedouro público está quebrado.
 
-Modo Administrador (Operador Municipal)
+---
 
-Arquitetura Orientada a Objetos (POO)
+## 2. Pessoas Reais Beneficiadas
 
-Resiliência Offline e Persistência Local JSON
+- **Garis, varredores e trabalhadores da limpeza e manutenção urbana**: passam o expediente inteiro expostos ao asfalto quente e dependem de bebedouros públicos e áreas de sombra para pausas e hidratação.
+- **Entregadores, ciclistas e trabalhadores ambulantes**: circulam sob radiação solar intensa e precisam localizar rapidamente pontos ativos para reabastecer água potável.
+- **Idosos e aposentados**: grupo com maior vulnerabilidade fisiológica ao calor extremo e menor adesão a aplicativos móveis.
+- **Cidadãos em trânsito e população em vulnerabilidade**: pessoas sem acesso imediato a água refrigerada ou ambientes climatizados.
 
-Design System de Alto Contraste Solar (Tema.cs + ReaLTaiizor)
+---
 
-Estrutura de Pastas e Diretórios
+## 3. O Que Foi Desenvolvido para Resolver o Problema
 
-Instruções de Compilação e Execução
+O sistema foi construído como uma aplicação desktop **Windows Forms em modo quiosque (tela cheia, alto contraste solar e botões amplos para toque)**, dividida em duas jornadas:
 
-Credenciais de Teste para Avaliação
+### Visão Pública — Autoatendimento do Munícipe (`MenuForm`)
+- **Painel de Telemetria Climática no Topo**: mostra em tempo real a Temperatura Atual, a Umidade Relativa e a Sensação Térmica calculada pela **equação científica de Rothfusz / NOAA**, classificando o alerta em *Risco Moderado*, *Risco Alto* ou *Risco Extremo*.
+- **Módulo 01 — Alerta de Calor Agora (`AlertaForm`)**: detalha as métricas térmicas locais e exibe diretrizes práticas de proteção à saúde (intervalos de hidratação, pausas recomendadas e sinais de insolação).
+- **Módulo 02 — Onde Beber Água / Descansar (`PontosApoioForm`)**: listagem pública (somente leitura) ordenada por proximidade ao totem, com filtros rápidos e diferenciação por cor:
+  - **Bebedouros Públicos** (azul);
+  - **Áreas de Sombra e Descanso** (verde);
+  - **Postos de Saúde Climatizados / UBS** (âmbar).
+- **Módulo 03 — Mapa de Refúgio e Recursos (`MapaForm`)**: mapa interativo em projeção Web Mercator (WGS-84) integrado à **Weather Maps 1.0 API da OpenWeather** (`https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png?appid={API key}`), permitindo alternar camadas de **Temperatura (`temp_new`)**, **Precipitação (`precipitation_new`)**, **Nuvens (`clouds_new`)**, **Vento (`wind_new`)** e **Pressão (`pressure_new`)**, aplicar zoom/arraste e clicar nos pinos georreferenciados dos pontos de apoio.
+- **Módulo 04 — Informar Problema em Bebedouro (`OcorrenciaForm`)**: canal de zeladoria participativa onde o cidadão seleciona o ponto de apoio e o defeito (*Sem Água*, *Torneira Quebrada*, *Água Suja / Imprópria* ou *Local Fechado*) em 2 toques, com campos opcionais para nome e observações (permitindo relatos anônimos).
 
-Integrantes da Equipe FIAP
+### Visão Restrita — Painel do Operador Municipal (`AdminAuthForm` e `AdminPontosForm`)
+- **Login Validado em JSON com Teclado Virtual (`AdminAuthForm`)**: autentica operadores cadastrados em `Data/operadores.json`, registra a data/hora do último acesso e oferece teclado virtual na tela sob demanda.
+- **Gestão Completa de Pontos com ViaCEP**: ao informar o CEP, o sistema consulta a API **ViaCEP** (`https://viacep.com.br/ws/{cep}/json/`), preenche rua, bairro, cidade e UF automaticamente, estima coordenadas WGS-84 e calcula a distância até o totem. Permite cadastrar, editar, interditar/reativar e excluir pontos.
+- **Auditoria de Ocorrências, Clima e Operadores**: permite marcar relatos de cidadãos como *Atendido* ou *Pendente*, atualizar a telemetria climática do totem (manualmente ou sincronizando com a OpenWeather) e gerenciar operadores autorizados.
 
-Sobre o Projeto e Problema Social
+### Persistência Local Resiliente em JSON (`TotemRepository`)
+Para garantir funcionamento mesmo sem banco de dados externo ou durante oscilações de rede, todos os dados são persistidos automaticamente na pasta `Data/` com *seed* inicial no primeiro uso:
+- `Data/pontos_apoio.json` — pontos de hidratação/refúgio com endereço e coordenadas (`Latitude` / `Longitude`);
+- `Data/ocorrencias.json` — relatos de manutenção abertos pelos cidadãos e status de atendimento;
+- `Data/operadores.json` — credenciais, cargos e registro de acesso dos operadores municipais;
+- `Data/alerta_climatico.json` — leitura climática vigente e camada padrão do mapa.
 
-As ondas de calor extremo tornaram-se desastres climáticos cada vez mais frequentes nos grandes centros urbanos devido ao avanço das mudanças climáticas e à formação de ilhas de calor. Em dias com sensações térmicas superiores a 40°C, a exposição contínua ao ar livre provoca:
+---
 
-Choque térmico e exaustão por calor (heat exhaustion);
+## 4. Tecnologias Utilizadas
 
-Insolação e desidratação aguda;
+- **Linguagem e Plataforma**: C# 12 e **.NET 8.0 (`net8.0-windows`)**
+- **Interface Gráfica**: **Windows Forms (WinForms)**, renderização customizada **GDI+** (`Tema.cs`) e biblioteca visual **ReaLTaiizor `3.8.2.1`**
+- **Persistência de Dados**: arquivos JSON locais com **`System.Text.Json`** e controle de concorrência (`TotemRepository.cs`)
+- **APIs e Serviços Integrados (`HttpClient`)**:
+  - **OpenWeather Weather Maps 1.0 API** e **Current Weather API** (`OpenWeatherMapService.cs`)
+  - **ViaCEP REST API** (autopreenchimento de endereços por CEP no painel administrativo)
 
-Pico de internações hospitalares e aumento da mortalidade de populações vulneráveis.
+---
 
-Embora existam alertas meteorológicos emitidos por aplicativos de smartphone, milhões de cidadãos vivem em exclusão digital: pessoas idosas sem familiaridade com celulares, trabalhadores braçais ao ar livre que não podem manusear aparelhos sob o sol, garis, entregadores e munícipes de baixa renda sem pacote de dados móveis ativo.
+## 5. Instruções de Execução (Sistema Windows Forms)
 
-O TermoAtiva é uma solução de CitizenTech concebida como um totem físico interativo (quiosque urbano) instalado estrategicamente em vias públicas de grande circulação, praças, terminais de ônibus e centros comerciais. Ele atua como uma rede de proteção climática na cidade, oferecendo informação instantânea, geolocalização de pontos de alívio térmico gratuitos e zeladoria urbana participativa.
+### Pré-requisitos
+- **Windows 10 ou 11** com **[.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)** instalado.
+- *(Opcional)* Para carregar os tiles meteorológicos ao vivo da OpenWeather no módulo de Mapa, crie um arquivo `.env` na raiz do repositório (copiando o `.env.example`) com sua chave gratuita da OpenWeather:
+  ```env
+  OPENWEATHER_API_KEY=sua_chave_openweather_aqui
+  ```
+  > Caso o arquivo `.env` não seja configurado ou não haja internet, o mapa funciona normalmente em **modo resiliente offline**, exibindo a malha cartográfica local, a mancha térmica simulada e todos os pinos interativos.
 
-Público-Alvo e Personas Beneficiadas
+### Passo a Passo no Terminal (PowerShell ou CMD)
 
-Garis, Varredores e Trabalhadores da Limpeza Urbana: Profissionais expostos ao asfalto quente durante todo o expediente de trabalho, dependentes de bebedouros e áreas de sombra para hidratação frequente e pausas laborais;
-
-Idosos e Aposentados: Cidadãos com menor capacidade termorreguladora natural, alta suscetibilidade à queda de pressão e desidratação, frequentemente desprovidos de smartphones;
-
-Entregadores de Aplicativo e Ciclistas: Trabalhadores em deslocamento contínuo sob radiação solar que precisam reabastecer garrafas de água potável ao longo do dia;
-
-Cidadãos em Situação de Vulnerabilidade / População em Trânsito: Pessoas sem acesso a ambientes com ar-condicionado ou água refrigerada em suas residências.
-
-Funcionalidades do Sistema
-
-O sistema é dividido estritamente em duas jornadas funcionais: a visão pública e acessível do munícipe e o painel restrito de gestão do operador municipal.
-
-1. Visão Pública (Autoatendimento do Munícipe)
-
-Monitoramento Climático em Tempo Real (Cabeçalho do Menu):
-
-Exibição de Temperatura Atual, Sensação Térmica e Umidade Relativa do Ar em blocos de telemetria;
-
-Indicador oficial dinâmico com classificação do risco térmico segundo protocolos da Defesa Civil e OMS;
-
-Relógio digital com data e hora sincronizados.
-
-Módulo 01 — Alerta de Calor Agora (AlertaForm):
-
-Detalhamento térmico em tipografia clara e cores de advertência solar;
-
-Lista de recomendações práticas de saúde (intervalos para hidratação obrigatória, pausa laboral e identificação imediata de sintomas de insolação);
-
-Botão de toque de retorno ao menu.
-
-Módulo 02 — Onde Beber Água / Descansar (PontosApoioForm):
-
-Consulta pública SOMENTE LEITURA: o munícipe não corre risco de alterar acidentalmente dados no totem;
-
-Filtros rápidos por toque no topo: Todos os Recursos, Bebedouros Públicos, Sombra e Descanso e Postos Climatizados;
-
-Diferenciação Visual por Categoria:
-
-Bebedouros Públicos: Destaque sutil em tons de Azul;
-
-Áreas de Sombra / Descanso: Destaque sutil em tons de Verde;
-
-Postos de Saúde Climatizados: Destaque sutil em tons de Laranja / Âmbar;
-
-Tabela exibindo Nome do Local, Categoria, Endereço Completo, Distância Estimada e Situação Operacional (DISPONÍVEL ou EM MANUTENÇÃO).
-
-Módulo 03 — Mapa de Refúgio e Recursos (MapaForm):
-
-Renderização cartográfica interativa (projeção Web Mercator / WGS-84) integrada à API Weather Maps 1.0 da OpenWeather (`https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png?appid={API key}`), com seletor de camadas climáticas (`temp_new`, `precipitation_new`, `clouds_new`, `wind_new`, `pressure_new`), controles de zoom/arraste e pinos georreferenciados clicáveis carregados de `Data/pontos_apoio.json`.
-
-Módulo 04 — Informar Problema em Bebedouro (OcorrenciaForm):
-
-Seleção obrigatória em 2 toques (Local + Condição: Sem Água, Torneira Quebrada, Água Suja / Imprópria ou Local Fechado);
-
-Campos estritamente opcionais para Nome do Cidadão e Descrição Adicional do Problema (Multiline), permitindo tanto relatos anônimos rápidos quanto relatos detalhados;
-
-Gravação resiliente imediata no arquivo JSON de ocorrências.
-
-2. Modo Administrador Restrito (Operador de Zeladoria)
-
-Autenticação Segura com Persistência JSON e Teclado Virtual Sob Demanda (AdminAuthForm):
-
-Modal com autenticação validada diretamente em `Data/operadores.json` (com registro automático de `UltimoAcesso`): Usuário `admin` (Senha `1234`) ou `zeladoria` (Senha `2026`);
-
-Teclado Virtual Sob Demanda: oculto por padrão (Visible = false) para privilegiar a limpeza visual, podendo ser exibido/ocultado a qualquer momento através do botão [ Teclado Virtual ].
-
-Painel Administrativo e Gestão de Recursos (AdminPontosForm):
-
-Integração Assíncrona com API ViaCEP: ao digitar o CEP ou acionar [ Buscar CEP ], o sistema consome https://viacep.com.br/ws/{cep}/json/ via HttpClient e preenche automaticamente Logradouro/Rua, Bairro, Cidade e UF;
-
-Cálculo Automático de Distância e Coordenadas WGS-84: a distância até o totem e as coordenadas geográficas (`Latitude` e `Longitude`) são calculadas dinamicamente pelo domínio com base no CEP/endereço;
-
-CRUD Completo de Pontos de Apoio (`Data/pontos_apoio.json`): cadastro, edição de pontos existentes, alternância rápida entre DISPONÍVEL e INTERDITADO e exclusão com confirmação;
-
-Auditoria e Resolução de Ocorrências (`Data/ocorrencias.json`): histórico das notificações enviadas pela população, com botões para alternar situação entre PENDENTE e ATENDIDO ou excluir registros improcedentes;
-
-Gestão de Telemetria Climática (`Data/alerta_climatico.json`) e Operadores (`Data/operadores.json`): aba dedicada para atualizar temperatura/umidade (com cálculo automático do Índice de Calor NOAA ou sincronização com a OpenWeather) e cadastrar/ativar/inativar operadores municipais.
-
-Arquitetura Orientada a Objetos (POO)
-
-O projeto adota uma arquitetura em duas camadas claras e desacopladas (Models e Views):
-
-GS_TermoAtiva_C_
-├── Models/
-│   ├── PontoApoio.cs (Entidade com endereço decomposto ViaCEP, coordenadas WGS-84 Latitude/Longitude e cálculo de distância)
-│   ├── AlertaClimatico.cs (Cálculo de Índice de Calor Rothfusz/NOAA, classificação de risco térmico e recomendações)
-│   ├── OcorrenciaMunicipe.cs (Entidade de zeladoria com suporte opcional a NomeMunicipe, DescricaoDetalhada e status Resolvido)
-│   ├── OperadorMunicipal.cs (Entidade de credenciais e controle de acesso de operadores persistida em JSON)
-│   ├── OpenWeatherMapService.cs (Consumo de tiles da Weather Maps 1.0 API da OpenWeather e projeção Web Mercator)
-│   └── TotemRepository.cs (Persistência atômica JSON dos 4 arquivos, seed offline e isolamento de I/O)
-└── Views/
-    ├── Tema.cs (Design System: integração ReaLTaiizor, KioskCardPanel, KioskActionTile e cabeçalhos padronizados)
-    ├── SplashForm.cs (Inicialização diagnóstica com HopeProgressBar)
-    ├── MenuForm.cs (Dashboard público em grade 2x2 com telemetria climática)
-    ├── AlertaForm.cs (Orientações de acolhimento térmico e hidratação)
-    ├── PontosApoioForm.cs (Consulta pública com diferenciação cromática por categoria)
-    ├── MapaForm.cs (Mapa interativo com tiles da OpenWeather Weather Maps 1.0 API, zoom/pan e pinos clicáveis)
-    ├── OcorrenciaForm.cs (Relato ágil de falhas com campos opcionais de cidadão e descrição)
-    ├── AdminAuthForm.cs (Modal de login validado em JSON com teclado virtual sob demanda)
-    └── AdminPontosForm.cs (Painel administrativo com ViaCEP, CRUD de pontos, resolução de ocorrências, clima e operadores)
-
-
-Resiliência Offline e Persistência Local JSON
-
-O TermoAtiva utiliza o motor nativo System.Text.Json para persistir todos os dados em arquivos JSON no próprio projeto:
-
-Data/pontos_apoio.json: Armazena os pontos de hidratação e refúgio com endereço estruturado e coordenadas geográficas (`Latitude` e `Longitude`).
-
-Data/ocorrencias.json: Armazena o registro de falhas reportadas pelos munícipes e seu status de atendimento (`Resolvido`).
-
-Data/operadores.json: Armazena os logins, cargos, status ativo/inativo e data/hora do último acesso dos operadores municipais.
-
-Data/alerta_climatico.json: Armazena a telemetria climática atual do totem (`TemperaturaAtual`, `UmidadeRelativa`, `SensacaoTermica`), bairro de referência e a camada padrão do mapa OpenWeather (`CamadaMapaPadrao`).
-
-Seed Inicial Automático: Caso os arquivos não existam no primeiro boot, o TotemRepository cria automaticamente a pasta Data/ e popula a base inicial completa.
-
-Design System de Alto Contraste Solar (Tema.cs + ReaLTaiizor)
-
-Biblioteca Visual ReaLTaiizor: Uso de botões arredondados (ParrotButton), barras de progresso (HopeProgressBar) e painéis customizados (KioskCardPanel e KioskActionTile) com renderização GDI+ anti-aliased.
-
-Cabeçalhos Padronizados Sem Truncamento: Todos os formulários utilizam Tema.CriarCabecalhoPadrao(...) com dimensionamento estruturado em TableLayoutPanel, garantindo que nenhum título seja cortado em diferentes resoluções ou escalas de DPI.
-
-Interface Tipográfica Pura (Zero Emojis): Todos os elementos visuais utilizam hierarquia tipográfica, indicadores numéricos e cores semânticas institucionais, sem uso de caracteres de emoji.
-
-Estrutura de Pastas e Diretórios
-
-C:/Users/Jonathan Silva/FIAP/GS/C#/
-├── .env.example
-├── .gitignore
-├── integrantes.txt
-├── README.md
-└── GS-TermoAtiva-C#/
-    ├── GS-TermoAtiva-C#.slnx
-    └── GS-TermoAtiva-C#/
-        ├── GS-TermoAtiva-C#.csproj
-        ├── Program.cs
-        ├── Data/
-        │   ├── alerta_climatico.json
-        │   ├── ocorrencias.json
-        │   ├── operadores.json
-        │   └── pontos_apoio.json
-        ├── Models/
-        │   ├── AlertaClimatico.cs
-        │   ├── OcorrenciaMunicipe.cs
-        │   ├── OpenWeatherMapService.cs
-        │   ├── OperadorMunicipal.cs
-        │   ├── PontoApoio.cs
-        │   └── TotemRepository.cs
-        └── Views/
-            ├── Tema.cs
-            ├── SplashForm.cs
-            ├── MenuForm.cs
-            ├── AlertaForm.cs
-            ├── PontosApoioForm.cs
-            ├── MapaForm.cs
-            ├── OcorrenciaForm.cs
-            ├── AdminAuthForm.cs
-            └── AdminPontosForm.cs
-
-
-Instruções de Compilação e Execução
-
-# 1. Acessar a raiz do repositório
+```powershell
+# 1. Acesse a pasta raiz do repositório
 cd "C:\Users\Jonathan Silva\FIAP\GS\C#"
 
-# 2. Compilar a Solution (0 erros, 0 avisos)
+# 2. Compile a solução (.slnx)
 dotnet build "GS-TermoAtiva-C#/GS-TermoAtiva-C#.slnx"
 
-# 3. Executar a aplicação do Totem
+# 3. Execute o sistema Windows Forms
 dotnet run --project "GS-TermoAtiva-C#/GS-TermoAtiva-C#/GS-TermoAtiva-C#.csproj"
+```
 
+### Credenciais de Acesso para Testes
 
-Credenciais de Teste para Avaliação
+| Perfil | Onde Acessar | Usuário | Senha |
+|---|---|---|---|
+| **Munícipe / Trabalhador** | Tela inicial (4 módulos públicos do totem) | *Acesso livre* | *Acesso livre* |
+| **Operador Chefe (Admin)** | Botão `[ Acesso Operador ]` no rodapé do menu | `admin` | `1234` |
+| **Equipe de Zeladoria** | Botão `[ Acesso Operador ]` no rodapé do menu | `zeladoria` | `2026` |
 
-Perfil
+---
 
-Mecanismo de Acesso
+## 6. Equipe FIAP
 
-Usuário
+| Nome Completo | RM |
+|---|---|
+| **Jonathan Henrique da Silva** | 561139 |
+| **Musashi Nascimento Mabuti** | 559444 |
+| **Marcos Vinicius Gonçalves Santos** | 560062 |
+| **Felipe Gimenes** | 99799 |
 
-Senha
-
-Munícipe / Trabalhador
-
-Acesso direto nos 4 módulos centrais do totem
-
-Livre
-
-Livre
-
-Operador Municipal (Admin)
-
-Botão [ Acesso Operador ] no rodapé
-
-admin
-
-1234
-
-Integrantes da Equipe FIAP
-
-Jonathan Henrique da Silva — RM: 561139
-
-Musashi Nascimento Mabuti — RM: 559444
-
-Marcos Vinicius Gonçalves Santos — RM: 560062
-
-Felipe Gimenes — RM: 99799
-
-Repositório Oficial no GitHub:
-
-https://github.com/Jhow17/GS-2026-2-C-.git
+**Repositório Oficial:** [https://github.com/Jhow17/GS-2026-2-C-](https://github.com/Jhow17/GS-2026-2-C-)

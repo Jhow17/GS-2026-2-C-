@@ -4,26 +4,76 @@ using System.Collections.Generic;
 namespace GS_TermoAtiva_C_.Models
 {
     /// <summary>
-    /// Modelo que encapsula os parâmetros micrometeorológicos locais capturados pelo totem
-    /// e aplica regras de triagem de risco à saúde e alertas à população vulnerável.
+    /// Modelo que encapsula os parâmetros micrometeorológicos locais capturados pelo totem,
+    /// calcula o Índice de Calor (regressão de Rothfusz / NOAA) e aplica regras de triagem de risco
+    /// à saúde e alertas à população vulnerável. Persistido em Data/alerta_climatico.json.
     /// </summary>
     public class AlertaClimatico
     {
         public double TemperaturaAtual { get; set; }
         public int UmidadeRelativa { get; set; }
         public double SensacaoTermica { get; set; }
+        public string BairroReferencia { get; set; } = "Sé - Centro";
+        public string CamadaMapaPadrao { get; set; } = "temp_new";
         public DateTime UltimaAtualizacao { get; set; } = DateTime.Now;
 
         public AlertaClimatico()
         {
         }
 
-        public AlertaClimatico(double temperaturaAtual, int umidadeRelativa, double sensacaoTermica, DateTime? ultimaAtualizacao = null)
+        public AlertaClimatico(
+            double temperaturaAtual,
+            int umidadeRelativa,
+            double? sensacaoTermica = null,
+            DateTime? ultimaAtualizacao = null,
+            string bairroReferencia = "Sé - Centro",
+            string camadaMapaPadrao = "temp_new")
         {
-            TemperaturaAtual = temperaturaAtual;
-            UmidadeRelativa = umidadeRelativa;
-            SensacaoTermica = sensacaoTermica;
+            TemperaturaAtual = Math.Round(temperaturaAtual, 1);
+            UmidadeRelativa = Math.Clamp(umidadeRelativa, 0, 100);
+            SensacaoTermica = sensacaoTermica.HasValue
+                ? Math.Round(sensacaoTermica.Value, 1)
+                : CalcularIndiceCalor(TemperaturaAtual, UmidadeRelativa);
+            BairroReferencia = string.IsNullOrWhiteSpace(bairroReferencia) ? "Sé - Centro" : bairroReferencia.Trim();
+            CamadaMapaPadrao = string.IsNullOrWhiteSpace(camadaMapaPadrao) ? "temp_new" : camadaMapaPadrao.Trim();
             UltimaAtualizacao = ultimaAtualizacao ?? DateTime.Now;
+        }
+
+        /// <summary>
+        /// Calcula o Índice de Calor (Heat Index / Sensação Térmica Aparente) pela equação de Rothfusz (NOAA).
+        /// </summary>
+        public static double CalcularIndiceCalor(double temperaturaC, int umidadeRelativa)
+        {
+            double rh = Math.Clamp(umidadeRelativa, 0, 100);
+            double tFahrenheit = (temperaturaC * 9.0 / 5.0) + 32.0;
+
+            double hiSimples = 0.5 * (tFahrenheit + 61.0 + ((tFahrenheit - 68.0) * 1.2) + (rh * 0.094));
+            double hiFahrenheit = hiSimples;
+
+            if ((hiSimples + tFahrenheit) / 2.0 >= 80.0)
+            {
+                hiFahrenheit = -42.379
+                    + 2.04901523 * tFahrenheit
+                    + 10.14333127 * rh
+                    - 0.22475541 * tFahrenheit * rh
+                    - 0.00683783 * tFahrenheit * tFahrenheit
+                    - 0.05481717 * rh * rh
+                    + 0.00122874 * tFahrenheit * tFahrenheit * rh
+                    + 0.00085282 * tFahrenheit * rh * rh
+                    - 0.00000199 * tFahrenheit * tFahrenheit * rh * rh;
+
+                if (rh < 13 && tFahrenheit is >= 80.0 and <= 112.0)
+                {
+                    hiFahrenheit -= ((13.0 - rh) / 4.0) * Math.Sqrt((17.0 - Math.Abs(tFahrenheit - 95.0)) / 17.0);
+                }
+                else if (rh > 85 && tFahrenheit is >= 80.0 and <= 87.0)
+                {
+                    hiFahrenheit += ((rh - 85.0) / 10.0) * ((87.0 - tFahrenheit) / 5.0);
+                }
+            }
+
+            double hiCelsius = (hiFahrenheit - 32.0) * 5.0 / 9.0;
+            return Math.Round(Math.Max(temperaturaC, hiCelsius), 1);
         }
 
         /// <summary>
@@ -35,7 +85,6 @@ namespace GS_TermoAtiva_C_.Models
         /// </summary>
         public string ClassificarNivelRisco()
         {
-            // Avalia a maior intensidade entre temperatura e sensação térmica para segurança máxima do munícipe
             double referencia = Math.Max(TemperaturaAtual, SensacaoTermica);
 
             if (referencia < 32.0)

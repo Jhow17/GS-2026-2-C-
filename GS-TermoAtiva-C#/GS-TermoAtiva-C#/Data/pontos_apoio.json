@@ -9,6 +9,8 @@
     "Bairro": "Sé",
     "Cidade": "São Paulo",
     "UF": "SP",
+    "Latitude": -23.5503,
+    "Longitude": -46.6339,
     "Endereco": "Praça da Sé, s/n - Sé, São Paulo/SP",
     "DistanciaMetros": 120,
     "Disponivel": true
@@ -23,6 +25,8 @@
     "Bairro": "Bela Vista",
     "Cidade": "São Paulo",
     "UF": "SP",
+    "Latitude": -23.5614,
+    "Longitude": -46.6559,
     "Endereco": "Avenida Paulista, 1578 - Bela Vista, São Paulo/SP",
     "DistanciaMetros": 350,
     "Disponivel": true
@@ -37,6 +41,8 @@
     "Bairro": "Santa Cecília",
     "Cidade": "São Paulo",
     "UF": "SP",
+    "Latitude": -23.5328,
+    "Longitude": -46.6518,
     "Endereco": "Rua Vitorino Carmilo, 599 - Santa Cecília, São Paulo/SP",
     "DistanciaMetros": 580,
     "Disponivel": true
@@ -51,6 +57,8 @@
     "Bairro": "Santana",
     "Cidade": "São Paulo",
     "UF": "SP",
+    "Latitude": -23.5162,
+    "Longitude": -46.625,
     "Endereco": "Avenida Cruzeiro do Sul, 1800 - Santana, São Paulo/SP",
     "DistanciaMetros": 850,
     "Disponivel": true
@@ -65,6 +73,8 @@
     "Bairro": "República",
     "Cidade": "São Paulo",
     "UF": "SP",
+    "Latitude": -23.5419,
+    "Longitude": -46.6448,
     "Endereco": "Largo do Arouche, 100 - República, São Paulo/SP",
     "DistanciaMetros": 420,
     "Disponivel": true
